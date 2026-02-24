@@ -1,0 +1,32 @@
+{
+  "name": "daily-digest",
+  "version": "1.0.0",
+  "description": "Generates a daily digest of recent Noodexx activity (timer-based skill example)",
+  "executable": "daily-digest.sh",
+  "triggers": [
+    {
+      "type": "manual"
+    },
+    {
+      "type": "timer",
+      "parameters": {
+        "schedule": "0 9 * * *",
+        "description": "Run daily at 9:00 AM"
+      }
+    }
+  ],
+  "settings_schema": {
+    "days_back": {
+      "type": "integer",
+      "default": 1,
+      "description": "Number of days to include in the digest"
+    },
+    "include_stats": {
+      "type": "boolean",
+      "default": true,
+      "description": "Include statistics in the digest"
+    }
+  },
+  "timeout": 30,
+  "requires_network": false
+}

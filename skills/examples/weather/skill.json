@@ -1,0 +1,26 @@
+{
+  "name": "weather",
+  "version": "1.0.0",
+  "description": "Fetches current weather for a location using wttr.in",
+  "executable": "weather.sh",
+  "triggers": [
+    {
+      "type": "manual"
+    },
+    {
+      "type": "keyword",
+      "parameters": {
+        "keywords": ["weather", "forecast", "temperature"]
+      }
+    }
+  ],
+  "settings_schema": {
+    "default_location": {
+      "type": "string",
+      "default": "San Francisco",
+      "description": "Default location for weather queries"
+    }
+  },
+  "timeout": 10,
+  "requires_network": true
+}

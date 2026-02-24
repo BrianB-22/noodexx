@@ -272,3 +272,141 @@ func TestGenerateSummary_TruncatesLongText(t *testing.T) {
 		t.Fatalf("IngestText failed: %v", err)
 	}
 }
+
+func TestIngestFile_TextFile(t *testing.T) {
+	store := &mockStore{}
+	provider := &mockProvider{}
+	chunker := &mockChunker{chunkSize: 100}
+
+	ingester := NewIngester(provider, store, chunker, false, false)
+
+	ctx := context.Background()
+
+	// Create a mock text file
+	content := "This is a test text file content."
+	file := &mockFile{content: content}
+	header := &multipart.FileHeader{
+		Filename: "test.txt",
+		Size:     int64(len(content)),
+	}
+
+	err := ingester.IngestFile(ctx, file, header, []string{"test"})
+
+	if err != nil {
+		t.Fatalf("IngestFile failed: %v", err)
+	}
+
+	if len(store.chunks) == 0 {
+		t.Fatal("Expected chunks to be saved")
+	}
+
+	if store.chunks[0].source != "test.txt" {
+		t.Errorf("Expected source 'test.txt', got '%s'", store.chunks[0].source)
+	}
+
+	if store.chunks[0].text != content {
+		t.Errorf("Expected text '%s', got '%s'", content, store.chunks[0].text)
+	}
+}
+
+func TestIngestFile_MarkdownFile(t *testing.T) {
+	store := &mockStore{}
+	provider := &mockProvider{}
+	chunker := &mockChunker{chunkSize: 100}
+
+	ingester := NewIngester(provider, store, chunker, false, false)
+
+	ctx := context.Background()
+
+	// Create a mock markdown file
+	content := "# Test Markdown\n\nThis is a test markdown file."
+	file := &mockFile{content: content}
+	header := &multipart.FileHeader{
+		Filename: "test.md",
+		Size:     int64(len(content)),
+	}
+
+	err := ingester.IngestFile(ctx, file, header, []string{"test"})
+
+	if err != nil {
+		t.Fatalf("IngestFile failed: %v", err)
+	}
+
+	if len(store.chunks) == 0 {
+		t.Fatal("Expected chunks to be saved")
+	}
+
+	if store.chunks[0].source != "test.md" {
+		t.Errorf("Expected source 'test.md', got '%s'", store.chunks[0].source)
+	}
+}
+
+func TestIngestFile_PDFFile(t *testing.T) {
+	store := &mockStore{}
+	provider := &mockProvider{}
+	chunker := &mockChunker{chunkSize: 100}
+
+	ingester := NewIngester(provider, store, chunker, false, false)
+
+	ctx := context.Background()
+
+	// Create a mock PDF file
+	file := &mockFile{content: "PDF content"}
+	header := &multipart.FileHeader{
+		Filename: "test.pdf",
+		Size:     100,
+	}
+
+	err := ingester.IngestFile(ctx, file, header, []string{"test"})
+
+	// Should fail because PDF parsing is not implemented yet
+	if err == nil {
+		t.Fatal("Expected PDF parsing error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "PDF parsing not yet implemented") {
+		t.Errorf("Expected PDF parsing error, got: %v", err)
+	}
+}
+
+// mockFile implements multipart.File for testing
+type mockFile struct {
+	content string
+	pos     int
+}
+
+func (m *mockFile) Read(p []byte) (n int, err error) {
+	if m.pos >= len(m.content) {
+		return 0, io.EOF
+	}
+	n = copy(p, m.content[m.pos:])
+	m.pos += n
+	return n, nil
+}
+
+func (m *mockFile) ReadAt(p []byte, off int64) (n int, err error) {
+	if off >= int64(len(m.content)) {
+		return 0, io.EOF
+	}
+	n = copy(p, m.content[off:])
+	if n < len(p) {
+		err = io.EOF
+	}
+	return n, err
+}
+
+func (m *mockFile) Seek(offset int64, whence int) (int64, error) {
+	switch whence {
+	case io.SeekStart:
+		m.pos = int(offset)
+	case io.SeekCurrent:
+		m.pos += int(offset)
+	case io.SeekEnd:
+		m.pos = len(m.content) + int(offset)
+	}
+	return int64(m.pos), nil
+}
+
+func (m *mockFile) Close() error {
+	return nil
+}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -100,25 +101,31 @@ func (ing *Ingester) IngestText(ctx context.Context, source, text string, tags [
 }
 
 // IngestURL fetches and processes a web page
-func (ing *Ingester) IngestURL(ctx context.Context, url string, tags []string) error {
+func (ing *Ingester) IngestURL(ctx context.Context, urlStr string, tags []string) error {
 	if ing.privacyMode {
 		return fmt.Errorf("URL ingestion is disabled in privacy mode")
 	}
 
+	// Parse URL
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
 	// Fetch URL content
-	resp, err := http.Get(url)
+	resp, err := http.Get(urlStr)
 	if err != nil {
 		return fmt.Errorf("failed to fetch URL: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Parse HTML using go-readability
-	article, err := readability.FromReader(resp.Body, nil)
+	article, err := readability.FromReader(resp.Body, parsedURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	return ing.IngestText(ctx, url, article.TextContent, tags)
+	return ing.IngestText(ctx, urlStr, article.TextContent, tags)
 }
 
 // IngestFile processes an uploaded file based on MIME type

@@ -1,0 +1,26 @@
+{
+  "name": "summarize-url",
+  "version": "1.0.0",
+  "description": "Fetches a URL and generates a summary using curl and basic text processing",
+  "executable": "summarize-url.sh",
+  "triggers": [
+    {
+      "type": "manual"
+    },
+    {
+      "type": "keyword",
+      "parameters": {
+        "keywords": ["summarize", "summary", "url", "link"]
+      }
+    }
+  ],
+  "settings_schema": {
+    "max_length": {
+      "type": "integer",
+      "default": 500,
+      "description": "Maximum length of the summary in characters"
+    }
+  },
+  "timeout": 15,
+  "requires_network": true
+}
