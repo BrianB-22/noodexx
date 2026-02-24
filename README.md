@@ -1,130 +1,198 @@
 # Noodexx
 
-Noodexx is a privacy-first, local AI knowledge assistant that enables users to ingest, index, search, and interact with their documents through a modern conversational interface.
+Noodexx is a privacy-first, local-first AI knowledge assistant that enables users to ingest, index, search, and interact with their documents through a modern conversational interface.
 
-It combines retrieval-augmented generation (RAG), modular AI provider support, and an extensible plugin system to deliver a secure and customizable knowledge workspace.
+It combines Retrieval-Augmented Generation (RAG), modular AI provider support, automated ingestion, and an extensible plugin system to deliver a secure and customizable knowledge workspace.
 
 ---
 
 ## Overview
 
-Noodexx provides:
+Noodexx allows users to:
 
-- Conversational access to personal knowledge
-- Local document indexing with semantic search
-- Configurable AI model support (local or cloud)
-- Strict privacy controls
-- Extensible automation via plugins (“skills”)
-- Real-time, responsive web interface
+- Index local documents
+- Perform semantic search across their knowledge base
+- Ask natural language questions grounded in their own data
+- Run AI models locally or via cloud providers
+- Extend functionality through plugins (“skills”)
+- Operate entirely in privacy mode if required
 
-The system runs locally by default, ensuring sensitive data remains under user control.
+By default, the system runs locally and keeps all indexed data under user control.
 
 ---
 
 ## Core Features
 
-### 1. Intelligent Document Indexing
+### Intelligent Document Indexing
 
-Supports ingestion of:
+Noodexx supports ingestion of:
 
-- `.txt`, `.md`
+- `.txt`
+- `.md`
 - `.pdf`
 - `.html`
-- Watched local folders (automatic ingestion)
+- Entire local folders (via file watching)
 
 Documents are:
 
-- Chunked into overlapping segments
+- Split into overlapping chunks
 - Embedded into vector representations
 - Stored in a local SQLite database
-- Searchable via cosine similarity
+- Made searchable using cosine similarity
 
-Optional auto-summarization generates document overviews.
-
----
-
-### 2. Retrieval-Augmented Conversational AI
-
-Noodexx allows users to:
-
-- Ask natural language questions
-- Retrieve semantically relevant document segments
-- Generate grounded responses using indexed content
-- Stream answers in real time
-
-All answers are contextualized against your data.
+Optional auto-summarization provides high-level document insights.
 
 ---
 
-### 3. Multi-Provider AI Support
+### Retrieval-Augmented Conversational AI (RAG)
 
-Supported providers:
+Users can:
 
-- **Ollama (local)**
+- Ask questions in natural language
+- Retrieve relevant document segments automatically
+- Generate responses grounded in indexed content
+- Receive streaming responses in real time
+
+This ensures that answers are based on the user's own knowledge base rather than generic model output.
+
+---
+
+### Multi-Provider AI Support
+
+Noodexx supports multiple LLM providers through a unified interface:
+
+- **Ollama (local models)**
 - **OpenAI**
 - **Anthropic**
 
-Privacy mode restricts the system to local-only providers.
+Providers are configurable through the application settings.
+
+When **Privacy Mode** is enabled, only local models (Ollama) are allowed.
 
 ---
 
-### 4. Privacy-First Operation
+### Privacy Mode
 
-Privacy mode enforces:
+Privacy Mode enforces strict local-only operation:
 
-- Local-only model usage
-- No outbound network requests
-- URL ingestion disabled
+- Cloud providers disabled
+- URL ingestion blocked
 - Network-dependent skills disabled
-- Strict configuration validation
+- Localhost validation enforced
+- No outbound API calls
 
-Security guardrails include:
+Additional safeguards include:
 
-- PII detection (SSN, credit card, API keys, private keys, email, phone)
+- PII detection (SSN, credit cards, API keys, emails, phone numbers, private keys)
 - File size limits
-- Extension whitelisting
+- Allowed/blocked extension filtering
 - System directory protection
 - Structured audit logging
 
 ---
 
-### 5. Skill Plugin System
+### Extensible Skill System
 
-Noodexx supports user-defined plugins:
+Noodexx includes a plugin architecture that allows users to extend functionality.
 
-- Defined via `skill.json`
-- Executed as controlled subprocesses
-- JSON input/output contract
-- Timeout enforcement
-- Manual, keyword, timer, or event triggers
-- Privacy mode compliance
+Skills:
 
-Skills allow automation and integration without modifying core code.
+- Are defined via `skill.json`
+- Run as controlled subprocesses
+- Use structured JSON input/output
+- Support manual, keyword, timer, or event triggers
+- Enforce execution timeouts
+- Respect privacy mode constraints
 
----
-
-### 6. Folder Watching
-
-Optional folder monitoring:
-
-- Detects new or modified files
-- Automatically ingests allowed files
-- Removes deleted files from index
-- Applies guardrails before processing
+This enables custom automation and domain-specific integrations without modifying core application code.
 
 ---
 
-### 7. Modern Web Interface
+### Automated Folder Monitoring
 
-Includes:
+Noodexx can monitor configured directories and:
 
-- Dashboard with system metrics
+- Automatically ingest new files
+- Re-index modified files
+- Remove deleted files from the database
+- Apply safety checks before processing
+
+This supports continuous synchronization of knowledge sources.
+
+---
+
+### Modern Web Interface
+
+The application provides a responsive browser-based UI with:
+
+- Dashboard overview and system metrics
 - Chat interface with session history
-- Document library with tagging/filtering
-- Drag-and-drop file ingestion
+- Document library with tagging and filtering
+- Drag-and-drop ingestion
 - Settings management (provider, privacy, guardrails)
-- Real-time notifications (WebSockets)
-- HTMX-based partial updates
+- Real-time notifications via WebSockets
+- Partial page updates via HTMX
 
-Runs locally at:
+The server runs locally by default (127.0.0.1:8080).
 
+---
+
+## Architecture
+
+Noodexx follows a modular package structure:
+
+- `store` – SQLite database abstraction
+- `llm` – LLM provider abstraction layer
+- `rag` – Chunking, vector search, prompt building
+- `ingest` – Document parsing and guardrails
+- `api` – HTTP server and WebSocket hub
+- `skills` – Plugin loader and executor
+- `watcher` – Filesystem monitoring
+- `config` – Configuration management
+- `logging` – Structured logging
+
+The backend is written in Go and uses only pure Go dependencies (no CGo).
+
+---
+
+## Technical Characteristics
+
+- Backend: Go 1.21+
+- Database: SQLite (pure Go driver)
+- Frontend: HTMX + vanilla JavaScript
+- WebSockets: Real-time notifications
+- Default bind address: `127.0.0.1:8080`
+- Binary size: ~15–20MB
+- Memory baseline: ~50–100MB
+
+---
+
+## Intended Use Cases
+
+Noodexx is designed for:
+
+- Developers managing technical documentation
+- Analysts working with private research data
+- Knowledge workers requiring local AI augmentation
+- Security-conscious individuals
+- Organizations requiring data sovereignty
+
+---
+
+## Security Considerations
+
+Recommended practices:
+
+- Keep default localhost binding unless remote access is required
+- Enable Privacy Mode when handling sensitive data
+- Review third-party skills before enabling
+- Use secure API keys for cloud providers
+- Periodically review audit logs
+
+---
+
+## Summary
+
+Noodexx provides a secure, extensible, and privacy-controlled AI knowledge assistant that operates locally while supporting optional cloud model integration.
+
+It combines semantic search, conversational AI, automated ingestion, plugin extensibility, and real-time UI responsiveness into a cohesive, production-grade knowledge platform.
