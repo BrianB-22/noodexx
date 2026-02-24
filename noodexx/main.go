@@ -21,6 +21,8 @@ import (
 	"noodexx/internal/watcher"
 )
 
+const version = "1.0.0"
+
 func main() {
 	// Load configuration
 	cfg, err := config.Load("config.json")
@@ -30,7 +32,7 @@ func main() {
 
 	// Initialize logger
 	logger := logging.NewLogger("main", logging.ParseLevel(cfg.Logging.Level), nil)
-	logger.Info("Starting Noodexx...")
+	logger.Info("Starting Noodexx v%s...", version)
 
 	// Initialize store with migrations
 	st, err := store.NewStore("noodexx.db")

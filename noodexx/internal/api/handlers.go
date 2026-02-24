@@ -44,6 +44,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare template data
 	data := map[string]interface{}{
+		"Title":         "Dashboard",
+		"Page":          "dashboard",
 		"DocumentCount": docCount,
 		"Provider":      providerName,
 		"PrivacyMode":   privacyMode,
@@ -52,7 +54,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render template
-	if err := s.templates.ExecuteTemplate(w, "dashboard.html", data); err != nil {
+	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		log.Printf("Failed to render dashboard template: %v", err)
 		http.Error(w, "Failed to render dashboard", http.StatusInternalServerError)
 	}
@@ -60,8 +62,15 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 // handleChat renders the chat page
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
+	// Prepare template data
+	data := map[string]interface{}{
+		"Title":       "Chat",
+		"Page":        "chat",
+		"PrivacyMode": s.config.PrivacyMode,
+	}
+
 	// Render chat template
-	if err := s.templates.ExecuteTemplate(w, "chat.html", nil); err != nil {
+	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		log.Printf("Failed to render chat template: %v", err)
 		http.Error(w, "Failed to render chat", http.StatusInternalServerError)
 	}
@@ -266,11 +275,14 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 
 	// Render full page
 	data := map[string]interface{}{
-		"Library":   filteredLibrary,
-		"TagFilter": tagFilter,
+		"Title":       "Library",
+		"Page":        "library",
+		"PrivacyMode": s.config.PrivacyMode,
+		"Library":     filteredLibrary,
+		"TagFilter":   tagFilter,
 	}
 
-	if err := s.templates.ExecuteTemplate(w, "library.html", data); err != nil {
+	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		log.Printf("Failed to render library template: %v", err)
 		http.Error(w, "Failed to render library", http.StatusInternalServerError)
 	}
@@ -507,11 +519,13 @@ func formatRelativeTime(t time.Time) string {
 // handleSettings renders the settings page
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
+		"Title":       "Settings",
+		"Page":        "settings",
 		"PrivacyMode": s.config.PrivacyMode,
 		"Provider":    s.config.Provider,
 	}
 
-	if err := s.templates.ExecuteTemplate(w, "settings.html", data); err != nil {
+	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
 		return
 	}
