@@ -15,6 +15,7 @@ type Server struct {
 	provider  LLMProvider
 	ingester  Ingester
 	searcher  Searcher
+	wsHub     *WebSocketHub
 	templates *template.Template
 	config    *ServerConfig
 }
@@ -122,9 +123,13 @@ func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Inges
 		provider:  provider,
 		ingester:  ingester,
 		searcher:  searcher,
+		wsHub:     NewWebSocketHub(),
 		templates: tmpl,
 		config:    config,
 	}
+
+	// Start WebSocket hub
+	go srv.wsHub.Run()
 
 	return srv, nil
 }
@@ -150,50 +155,13 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/session/", s.handleSessionHistory)
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/activity", s.handleActivity)
+
+	// WebSocket
+	mux.HandleFunc("/ws", s.handleWebSocket)
 }
 
-// Placeholder handlers - to be implemented in subsequent tasks
-func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
+// Placeholder handlers for settings and activity - to be implemented in task 8.9 and 8.10
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleIngestText(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleIngestURL(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleSessionHistory(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
 

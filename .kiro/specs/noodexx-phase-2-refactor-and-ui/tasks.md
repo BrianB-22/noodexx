@@ -399,7 +399,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Add static file serving for /static/
     - _Requirements: 6.1-6.5_
 
-  - [ ] 8.2 Implement WebSocket hub
+  - [x] 8.2 Implement WebSocket hub
     - Create internal/api/websocket.go with WebSocketHub struct
     - Implement NewWebSocketHub() constructor
     - Implement Run() method for event loop (register, unregister, broadcast)
@@ -407,14 +407,14 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Implement handleWebSocket() handler for upgrading connections
     - _Requirements: 16.1-16.5_
 
-  - [ ] 8.3 Implement dashboard handler
+  - [x] 8.3 Implement dashboard handler
     - Implement handleDashboard() in internal/api/handlers.go
     - Query store for document count, last ingestion timestamp
     - Get provider name and privacy mode status from config
     - Render dashboard.html template with stats
     - _Requirements: 9.1-9.6_
 
-  - [ ] 8.4 Implement chat handlers
+  - [x] 8.4 Implement chat handlers
     - Implement handleChat() for rendering chat page
     - Implement handleAsk() for processing queries with RAG
     - Add session management with session ID generation
@@ -423,19 +423,19 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Add audit logging for queries
     - _Requirements: 10.1-10.6, 11.1-11.5, 12.1-12.5_
 
-  - [ ] 8.5 Implement session management handlers
+  - [x] 8.5 Implement session management handlers
     - Implement handleSessions() for listing all sessions
     - Implement handleSessionHistory() for retrieving messages by session ID
     - Return HTML fragments for HTMX integration
     - _Requirements: 10.3-10.6_
 
-  - [ ] 8.6 Implement library handlers
+  - [x] 8.6 Implement library handlers
     - Implement handleLibrary() for rendering library page
     - Add tag filtering support via query parameter
     - Return document cards as HTML fragments for HTMX
     - _Requirements: 13.1-13.5, 15.1-15.6_
 
-  - [ ] 8.7 Implement ingestion handlers
+  - [x] 8.7 Implement ingestion handlers
     - Implement handleIngestText() for plain text ingestion
     - Implement handleIngestURL() for URL ingestion
     - Implement handleIngestFile() for file upload ingestion
@@ -443,7 +443,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Add audit logging for ingestions
     - _Requirements: 5.1-5.8, 14.1-14.5_
 
-  - [ ] 8.8 Implement delete handler
+  - [x] 8.8 Implement delete handler
     - Implement handleDelete() for removing documents
     - Add WebSocket broadcast on deletion
     - Add audit logging for deletions
