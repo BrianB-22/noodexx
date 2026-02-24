@@ -74,6 +74,14 @@ func (l *Loader) LoadAll() ([]*Skill, error) {
 		}
 
 		skillPath := filepath.Join(l.skillsDir, entry.Name())
+
+		// Check if skill.json exists before trying to load
+		skillJSONPath := filepath.Join(skillPath, "skill.json")
+		if _, err := os.Stat(skillJSONPath); os.IsNotExist(err) {
+			// No skill.json, skip this directory silently
+			continue
+		}
+
 		skill, err := l.loadSkill(skillPath)
 		if err != nil {
 			// Log error but continue loading other skills

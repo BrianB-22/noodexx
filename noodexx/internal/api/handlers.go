@@ -16,6 +16,13 @@ import (
 
 // handleDashboard renders the dashboard page with system stats
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	log.Printf("=== handleDashboard called for path: %s ===", r.URL.Path)
+
+	// Prevent caching
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
 	ctx := r.Context()
 
 	// Get document count
@@ -40,6 +47,13 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Get provider info
 	providerName := s.provider.Name()
+	if providerName == "ollama" {
+		providerName = fmt.Sprintf("Ollama (%s)", s.config.OllamaChatModel)
+	} else if providerName == "openai" {
+		providerName = fmt.Sprintf("OpenAI (%s)", s.config.OpenAIChatModel)
+	} else if providerName == "anthropic" {
+		providerName = fmt.Sprintf("Anthropic (%s)", s.config.AnthropicChatModel)
+	}
 	privacyMode := s.config.PrivacyMode
 
 	// Prepare template data
@@ -53,15 +67,25 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"HasIngestions": !lastIngestion.IsZero(),
 	}
 
+	log.Printf("Dashboard data: Title=%s, Page=%s, DocumentCount=%d", data["Title"], data["Page"], docCount)
+
 	// Render template
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		log.Printf("Failed to render dashboard template: %v", err)
 		http.Error(w, "Failed to render dashboard", http.StatusInternalServerError)
 	}
+	log.Printf("Dashboard template rendered successfully")
 }
 
 // handleChat renders the chat page
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
+	log.Printf("=== handleChat called for path: %s ===", r.URL.Path)
+
+	// Prevent caching
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
 	// Prepare template data
 	data := map[string]interface{}{
 		"Title":       "Chat",
@@ -69,11 +93,14 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		"PrivacyMode": s.config.PrivacyMode,
 	}
 
+	log.Printf("Chat data: Title=%s, Page=%s", data["Title"], data["Page"])
+
 	// Render chat template
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		log.Printf("Failed to render chat template: %v", err)
 		http.Error(w, "Failed to render chat", http.StatusInternalServerError)
 	}
+	log.Printf("Chat template rendered successfully")
 }
 
 // handleAsk processes chat queries with RAG
@@ -214,6 +241,13 @@ func (s *Server) handleSessionHistory(w http.ResponseWriter, r *http.Request) {
 
 // handleLibrary renders the library page with document cards
 func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
+	log.Printf("=== handleLibrary called for path: %s ===", r.URL.Path)
+
+	// Prevent caching
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
 	ctx := r.Context()
 
 	// Get tag filter from query parameter
@@ -518,17 +552,63 @@ func formatRelativeTime(t time.Time) string {
 
 // handleSettings renders the settings page
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
+	log.Printf("=== handleSettings called for path: %s ===", r.URL.Path)
+
+	// Prevent caching of settings page
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
+	// Debug logging - log the actual config values
+	log.Printf("=== Settings Handler Debug ===")
+	log.Printf("s.config.Provider: '%s'", s.config.Provider)
+	log.Printf("s.config.OllamaEndpoint: '%s'", s.config.OllamaEndpoint)
+	log.Printf("s.config.OllamaEmbedModel: '%s'", s.config.OllamaEmbedModel)
+	log.Printf("s.config.OllamaChatModel: '%s'", s.config.OllamaChatModel)
+
+	// Create nested config structure that matches template expectations
+	configData := map[string]interface{}{
+		"Privacy": map[string]interface{}{
+			"Enabled": s.config.PrivacyMode,
+		},
+		"Provider": map[string]interface{}{
+			"Type":               s.config.Provider,
+			"OllamaEndpoint":     s.config.OllamaEndpoint,
+			"OllamaEmbedModel":   s.config.OllamaEmbedModel,
+			"OllamaChatModel":    s.config.OllamaChatModel,
+			"OpenAIKey":          s.config.OpenAIKey,
+			"OpenAIEmbedModel":   s.config.OpenAIEmbedModel,
+			"OpenAIChatModel":    s.config.OpenAIChatModel,
+			"AnthropicKey":       s.config.AnthropicKey,
+			"AnthropicChatModel": s.config.AnthropicChatModel,
+		},
+		"Folders": []string{},
+		"Guardrails": map[string]interface{}{
+			"PIIDetection":  "normal",
+			"AutoSummarize": true,
+			"MaxFileSizeMB": 10,
+			"MaxConcurrent": 3,
+		},
+	}
+
+	// Debug log what we're sending to template
+	providerMap := configData["Provider"].(map[string]interface{})
+	log.Printf("Template Provider.OllamaChatModel: '%s'", providerMap["OllamaChatModel"])
+	log.Printf("Template Provider.OllamaEmbedModel: '%s'", providerMap["OllamaEmbedModel"])
+
 	data := map[string]interface{}{
 		"Title":       "Settings",
 		"Page":        "settings",
 		"PrivacyMode": s.config.PrivacyMode,
-		"Provider":    s.config.Provider,
+		"Config":      configData,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
+		log.Printf("Template execution error: %v", err)
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("=== Settings Handler Complete ===")
 }
 
 // handleConfig saves configuration changes
@@ -560,17 +640,28 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	log.Printf("Testing connection with provider: %s", s.provider.Name())
+	log.Printf("Embed model: %s", s.config.OllamaEmbedModel)
+
 	// Test embedding with a simple text
-	_, err := s.provider.Embed(ctx, "test")
+	embedding, err := s.provider.Embed(ctx, "test")
 	if err != nil {
+		log.Printf("Connection test failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf(`{"success": false, "error": "%s"}`, err.Error())))
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
+	log.Printf("Connection test successful, embedding length: %d", len(embedding))
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"success": true, "message": "Connection successful"}`))
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Connection successful",
+	})
 }
 
 // handleActivity returns recent activity feed for the dashboard

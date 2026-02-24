@@ -1,11 +1,51 @@
-/* Noodexx Stylesheet - Phase 2 */
-/* Full styles will be implemented in Phase 10 */
+/* Noodexx Stylesheet v1.0.0 */
+
+/* ============================================================================
+   CSS Variables & Theme
+   ============================================================================ */
 
 :root {
     --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --primary-light: #eff6ff;
+    --secondary-color: #6b7280;
+    --success-color: #10b981;
+    --error-color: #ef4444;
+    --warning-color: #f59e0b;
+    --info-color: #3b82f6;
+    
     --background: #ffffff;
-    --text: #1f2937;
+    --background-secondary: #f9fafb;
+    --background-tertiary: #f3f4f6;
+    
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --text-tertiary: #9ca3af;
+    
+    --border-color: #e5e7eb;
+    --border-color-dark: #d1d5db;
+    
+    --sidebar-width: 250px;
+    --sidebar-collapsed-width: 60px;
+    
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    
+    --transition-fast: 150ms ease-in-out;
+    --transition-normal: 250ms ease-in-out;
+    --transition-slow: 350ms ease-in-out;
 }
+
+/* ============================================================================
+   Reset & Base Styles
+   ============================================================================ */
 
 * {
     margin: 0;
@@ -13,36 +53,391 @@
     box-sizing: border-box;
 }
 
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--background);
-    color: var(--text);
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--background);
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+/* ============================================================================
+   Layout Container
+   ============================================================================ */
 
 .container {
     display: flex;
     min-height: 100vh;
 }
 
+/* ============================================================================
+   Sidebar Navigation
+   ============================================================================ */
+
 .sidebar {
-    width: 250px;
-    background: #f9fafb;
-    padding: 1rem;
-    border-right: 1px solid #e5e7eb;
+    width: var(--sidebar-width);
+    background: var(--background-secondary);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transition: width var(--transition-normal);
+    position: relative;
+    z-index: 100;
 }
+
+.sidebar.collapsed {
+    width: var(--sidebar-collapsed-width);
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.logo {
+    flex-shrink: 0;
+}
+
+.logo-text {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    transition: opacity var(--transition-fast);
+}
+
+.sidebar.collapsed .logo-text {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+}
+
+.sidebar-toggle {
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-toggle:hover {
+    background: var(--background-tertiary);
+    color: var(--text-primary);
+}
+
+/* Privacy Mode Badge */
+.privacy-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin: 1rem;
+    background: var(--primary-light);
+    border: 1px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    color: var(--primary-color);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: opacity var(--transition-fast);
+}
+
+.sidebar.collapsed .privacy-badge {
+    opacity: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.privacy-text {
+    white-space: nowrap;
+}
+
+/* Navigation Links */
+.nav-links {
+    list-style: none;
+    padding: 1rem 0.5rem;
+    flex: 1;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    font-weight: 500;
+}
+
+.nav-item:hover {
+    background: var(--background-tertiary);
+    color: var(--text-primary);
+}
+
+.nav-item.active {
+    background: var(--primary-light);
+    color: var(--primary-color);
+}
+
+.nav-icon {
+    flex-shrink: 0;
+}
+
+.nav-label {
+    white-space: nowrap;
+    transition: opacity var(--transition-fast);
+}
+
+.sidebar.collapsed .nav-label {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+}
+
+/* ============================================================================
+   Main Content Area
+   ============================================================================ */
 
 .main-content {
     flex: 1;
     padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+    transition: margin-left var(--transition-normal);
 }
 
-h1 {
+/* ============================================================================
+   Dashboard Styles
+   ============================================================================ */
+
+.dashboard h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: all var(--transition-fast);
+}
+
+.stat-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-color-dark);
+}
+
+.stat-card.privacy {
+    background: var(--primary-light);
+    border-color: var(--primary-color);
+}
+
+.stat-icon {
+    font-size: 2rem;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Quick Actions */
+.quick-actions {
+    margin-bottom: 2rem;
+}
+
+.quick-actions h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
     margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Activity Section */
+.activity-section {
+    margin-top: 2rem;
+}
+
+.activity-section h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.activity-feed {
+    background: var(--background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    min-height: 200px;
+}
+
+.activity-item {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-time {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+.activity-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+/* ============================================================================
+   Button Styles
+   ============================================================================ */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+    background: var(--background-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: var(--background-secondary);
+    border-color: var(--border-color-dark);
+}
+
+.btn-icon {
+    padding: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.btn-icon:hover {
+    background: var(--background-tertiary);
+    color: var(--text-primary);
+}
+
+/* ============================================================================
+   Form Elements
+   ============================================================================ */
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+textarea,
+select {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--background);
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
 }
 
 /* ============================================================================
    Toast Notification System
-   Requirements: 17.1-17.5
    ============================================================================ */
 
 .toast-container {
@@ -64,8 +459,8 @@ h1 {
     max-width: 500px;
     padding: 1rem;
     background: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
     pointer-events: auto;
     opacity: 0;
     transform: translateX(100%);
@@ -103,7 +498,7 @@ h1 {
     cursor: pointer;
     color: #9ca3af;
     transition: color 0.2s;
-    border-radius: 0.25rem;
+    border-radius: var(--radius-sm);
 }
 
 .toast-close:hover {
@@ -111,42 +506,40 @@ h1 {
     background: #f3f4f6;
 }
 
-/* Toast variants */
 .toast-success {
-    border-left: 4px solid #10b981;
+    border-left: 4px solid var(--success-color);
 }
 
 .toast-success .toast-icon {
-    color: #10b981;
+    color: var(--success-color);
 }
 
 .toast-error {
-    border-left: 4px solid #ef4444;
+    border-left: 4px solid var(--error-color);
 }
 
 .toast-error .toast-icon {
-    color: #ef4444;
+    color: var(--error-color);
 }
 
 .toast-info {
-    border-left: 4px solid #3b82f6;
+    border-left: 4px solid var(--info-color);
 }
 
 .toast-info .toast-icon {
-    color: #3b82f6;
+    color: var(--info-color);
 }
 
 .toast-warning {
-    border-left: 4px solid #f59e0b;
+    border-left: 4px solid var(--warning-color);
 }
 
 .toast-warning .toast-icon {
-    color: #f59e0b;
+    color: var(--warning-color);
 }
 
 /* ============================================================================
    Command Palette
-   Requirements: 18.1-18.5
    ============================================================================ */
 
 .command-palette {
@@ -181,8 +574,8 @@ h1 {
     width: 90%;
     max-width: 600px;
     background: white;
-    border-radius: 0.75rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
     overflow: hidden;
     animation: commandPaletteSlideIn 0.2s ease-out;
 }
@@ -203,13 +596,13 @@ h1 {
     padding: 1rem 1.5rem;
     font-size: 1rem;
     border: none;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--border-color);
     outline: none;
     background: white;
 }
 
 .command-input::placeholder {
-    color: #9ca3af;
+    color: var(--text-tertiary);
 }
 
 .command-list {
@@ -225,23 +618,23 @@ h1 {
     gap: 0.75rem;
     padding: 0.75rem 1rem;
     cursor: pointer;
-    border-radius: 0.5rem;
-    transition: background 0.15s;
+    border-radius: var(--radius-md);
+    transition: background var(--transition-fast);
 }
 
 .command-item:hover {
-    background: #f3f4f6;
+    background: var(--background-tertiary);
 }
 
 .command-item.selected {
-    background: #eff6ff;
-    border: 1px solid #3b82f6;
+    background: var(--primary-light);
+    border: 1px solid var(--primary-color);
 }
 
 .command-item-empty {
     padding: 2rem 1rem;
     text-align: center;
-    color: #9ca3af;
+    color: var(--text-tertiary);
     font-size: 0.875rem;
 }
 
@@ -258,35 +651,34 @@ h1 {
 .command-label {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #1f2937;
+    color: var(--text-primary);
 }
 
 .command-description {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-secondary);
     margin-top: 0.125rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* Scrollbar styling for command list */
 .command-list::-webkit-scrollbar {
     width: 8px;
 }
 
 .command-list::-webkit-scrollbar-track {
-    background: #f3f4f6;
+    background: var(--background-tertiary);
     border-radius: 4px;
 }
 
 .command-list::-webkit-scrollbar-thumb {
-    background: #d1d5db;
+    background: var(--border-color-dark);
     border-radius: 4px;
 }
 
 .command-list::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
+    background: var(--text-tertiary);
 }
 
 /* ============================================================================
@@ -295,4 +687,48 @@ h1 {
 
 .hidden {
     display: none !important;
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* ============================================================================
+   Responsive Design
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 1000;
+        transform: translateX(-100%);
+    }
+    
+    .sidebar:not(.collapsed) {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        padding: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+    }
 }

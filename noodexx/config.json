@@ -2,8 +2,8 @@
   "provider": {
     "type": "ollama",
     "ollama_endpoint": "http://localhost:11434",
-    "ollama_embed_model": "nomic-embed-text",
-    "ollama_chat_model": "llama3.2",
+    "ollama_embed_model": "nomic-embed-text:latest",
+    "ollama_chat_model": "noodexx-chat:latest",
     "openai_key": "",
     "openai_embed_model": "text-embedding-3-small",
     "openai_chat_model": "gpt-4",

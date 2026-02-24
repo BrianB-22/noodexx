@@ -154,13 +154,14 @@ function loadCommands() {
     // Load manual-trigger skills from API
     fetch('/api/skills')
         .then(response => response.json())
-        .then(skills => {
+        .then(data => {
+            const skills = data.skills || [];
             skills.forEach(skill => {
-                if (skill.trigger === 'manual') {
+                if (skill.triggers && skill.triggers.includes('manual')) {
                     availableCommands.push({
-                        id: `skill-${skill.id}`,
+                        id: `skill-${skill.name}`,
                         label: `Run: ${skill.name}`,
-                        action: () => runSkill(skill.id),
+                        action: () => runSkill(skill.name),
                         icon: '🔧',
                         description: skill.description
                     });

@@ -29,6 +29,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	log.Printf("=== Configuration Loaded ===")
+	log.Printf("Provider Type: %s", cfg.Provider.Type)
+	log.Printf("Ollama Chat Model: %s", cfg.Provider.OllamaChatModel)
+	log.Printf("Ollama Embed Model: %s", cfg.Provider.OllamaEmbedModel)
+	log.Printf("=============================")
 
 	// Initialize logger
 	logger := logging.NewLogger("main", logging.ParseLevel(cfg.Logging.Level), nil)
@@ -100,8 +105,16 @@ func main() {
 
 	// Initialize API server with adapters
 	apiConfig := &api.ServerConfig{
-		PrivacyMode: cfg.Privacy.Enabled,
-		Provider:    cfg.Provider.Type,
+		PrivacyMode:        cfg.Privacy.Enabled,
+		Provider:           cfg.Provider.Type,
+		OllamaEndpoint:     cfg.Provider.OllamaEndpoint,
+		OllamaEmbedModel:   cfg.Provider.OllamaEmbedModel,
+		OllamaChatModel:    cfg.Provider.OllamaChatModel,
+		OpenAIKey:          cfg.Provider.OpenAIKey,
+		OpenAIEmbedModel:   cfg.Provider.OpenAIEmbedModel,
+		OpenAIChatModel:    cfg.Provider.OpenAIChatModel,
+		AnthropicKey:       cfg.Provider.AnthropicKey,
+		AnthropicChatModel: cfg.Provider.AnthropicChatModel,
 	}
 	apiStoreAdapter := &apiStoreAdapter{store: st}
 	apiProviderAdapter := &apiProviderAdapter{provider: provider}

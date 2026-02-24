@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -145,8 +146,16 @@ type AuditEntry struct {
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	PrivacyMode bool
-	Provider    string
+	PrivacyMode        bool
+	Provider           string
+	OllamaEndpoint     string
+	OllamaEmbedModel   string
+	OllamaChatModel    string
+	OpenAIKey          string
+	OpenAIEmbedModel   string
+	OpenAIChatModel    string
+	AnthropicKey       string
+	AnthropicChatModel string
 }
 
 // NewServer creates a server with dependencies and loads templates
@@ -182,16 +191,20 @@ func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Inges
 
 // RegisterRoutes sets up all HTTP routes
 func (s *Server) RegisterRoutes(mux *http.ServeMux) {
-	// Static files - serve from web/static/
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	log.Printf("=== Registering HTTP routes ===")
 
-	// Page routes
-	mux.HandleFunc("/", s.handleDashboard)
-	mux.HandleFunc("/chat", s.handleChat)
-	mux.HandleFunc("/library", s.handleLibrary)
-	mux.HandleFunc("/settings", s.handleSettings)
+	// Static files - serve from web/static/ with cache control
+	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("web/static")))
+	mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
+		// Set cache control headers for static assets
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+		staticHandler.ServeHTTP(w, r)
+	})
+	log.Printf("Registered: /static/")
 
-	// API routes
+	// API routes (register before page routes to avoid conflicts)
 	mux.HandleFunc("/api/ask", s.handleAsk)
 	mux.HandleFunc("/api/ingest/text", s.handleIngestText)
 	mux.HandleFunc("/api/ingest/url", s.handleIngestURL)
@@ -204,7 +217,33 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/activity", s.handleActivity)
 	mux.HandleFunc("/api/skills", s.handleSkills)
 	mux.HandleFunc("/api/skills/run", s.handleRunSkill)
+	log.Printf("Registered: API routes")
 
 	// WebSocket
 	mux.HandleFunc("/ws", s.handleWebSocket)
+	log.Printf("Registered: /ws")
+
+	// Page routes (register last, with exact path matching)
+	mux.HandleFunc("/settings", s.handleSettings)
+	log.Printf("Registered: /settings -> handleSettings")
+
+	mux.HandleFunc("/library", s.handleLibrary)
+	log.Printf("Registered: /library -> handleLibrary")
+
+	mux.HandleFunc("/chat", s.handleChat)
+	log.Printf("Registered: /chat -> handleChat")
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Root handler called for path: %s", r.URL.Path)
+		// Only handle exact "/" path for dashboard
+		if r.URL.Path != "/" {
+			log.Printf("Path is not '/', returning 404")
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("Calling handleDashboard")
+		s.handleDashboard(w, r)
+	})
+	log.Printf("Registered: / -> handleDashboard (with exact match)")
+	log.Printf("=== Route registration complete ===")
 }

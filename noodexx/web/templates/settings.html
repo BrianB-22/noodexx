@@ -1,4 +1,4 @@
-{{define "content"}}
+{{define "settings-content"}}
 <div class="settings-container">
     <!-- Settings Header -->
     <div class="settings-header">
@@ -385,7 +385,7 @@ async function testConnection() {
     }
     
     try {
-        const response = await fetch('/api/settings/test', {
+        const response = await fetch('/api/test-connection', {
             method: 'POST',
             body: formData
         });
