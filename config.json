@@ -1,0 +1,40 @@
+{
+  "provider": {
+    "type": "ollama",
+    "ollama_endpoint": "http://localhost:11434",
+    "ollama_embed_model": "nomic-embed-text",
+    "ollama_chat_model": "llama3.2",
+    "openai_key": "",
+    "openai_embed_model": "text-embedding-3-small",
+    "openai_chat_model": "gpt-4",
+    "anthropic_key": "",
+    "anthropic_embed_model": "",
+    "anthropic_chat_model": "claude-3-sonnet-20240229"
+  },
+  "privacy": {
+    "enabled": true
+  },
+  "folders": [],
+  "logging": {
+    "level": "info",
+    "file": "",
+    "max_size_mb": 100,
+    "max_backups": 3
+  },
+  "guardrails": {
+    "max_file_size_mb": 10,
+    "allowed_extensions": [
+      ".txt",
+      ".md",
+      ".pdf",
+      ".html"
+    ],
+    "max_concurrent": 3,
+    "pii_detection": "normal",
+    "auto_summarize": true
+  },
+  "server": {
+    "port": 8080,
+    "bind_address": "127.0.0.1"
+  }
+}
