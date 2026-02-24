@@ -1,6 +1,764 @@
 {{define "content"}}
-<div class="settings">
-    <h1>Settings</h1>
-    <p>Settings interface will be implemented in Phase 9</p>
+<div class="settings-container">
+    <!-- Settings Header -->
+    <div class="settings-header">
+        <div class="settings-title">
+            <svg width="24" height="24" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"/>
+            </svg>
+            <h1>Settings</h1>
+        </div>
+        <button class="btn-primary" onclick="saveSettings()">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z"/>
+            </svg>
+            Save Settings
+        </button>
+    </div>
+
+    <form id="settingsForm" class="settings-form">
+        <!-- Privacy Mode Section -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2>Privacy Mode</h2>
+                <p class="section-description">Enable privacy mode to ensure all data stays local. Only Ollama provider is available in privacy mode.</p>
+            </div>
+            
+            <div class="form-group">
+                <label class="toggle-label">
+                    <input type="checkbox" id="privacyMode" name="privacy_enabled" 
+                           {{if .Config.Privacy.Enabled}}checked{{end}}
+                           onchange="togglePrivacyMode()">
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-text">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"/>
+                        </svg>
+                        Privacy Mode Active - All data stays local
+                    </span>
+                </label>
+            </div>
+        </section>
+
+        <!-- LLM Provider Section -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2>LLM Provider</h2>
+                <p class="section-description">Configure your language model provider for embeddings and chat.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="providerType">Provider</label>
+                <select id="providerType" name="provider_type" onchange="updateProviderFields()">
+                    <option value="ollama" {{if eq .Config.Provider.Type "ollama"}}selected{{end}}>Ollama (Local)</option>
+                    <option value="openai" {{if eq .Config.Provider.Type "openai"}}selected{{end}}>OpenAI</option>
+                    <option value="anthropic" {{if eq .Config.Provider.Type "anthropic"}}selected{{end}}>Anthropic</option>
+                </select>
+            </div>
+
+            <!-- Ollama Settings -->
+            <div id="ollamaSettings" class="provider-settings">
+                <h3>Ollama Configuration</h3>
+                
+                <div class="form-group">
+                    <label for="ollamaEndpoint">Endpoint URL</label>
+                    <input type="text" id="ollamaEndpoint" name="ollama_endpoint" 
+                           value="{{.Config.Provider.OllamaEndpoint}}"
+                           placeholder="http://localhost:11434">
+                    <small class="form-hint">Local Ollama server endpoint</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="ollamaEmbedModel">Embedding Model</label>
+                    <input type="text" id="ollamaEmbedModel" name="ollama_embed_model" 
+                           value="{{.Config.Provider.OllamaEmbedModel}}"
+                           placeholder="nomic-embed-text">
+                    <small class="form-hint">Model for generating embeddings</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="ollamaChatModel">Chat Model</label>
+                    <input type="text" id="ollamaChatModel" name="ollama_chat_model" 
+                           value="{{.Config.Provider.OllamaChatModel}}"
+                           placeholder="llama3.2">
+                    <small class="form-hint">Model for chat completions</small>
+                </div>
+            </div>
+
+            <!-- OpenAI Settings -->
+            <div id="openaiSettings" class="provider-settings">
+                <h3>OpenAI Configuration</h3>
+                
+                <div class="form-group">
+                    <label for="openaiKey">API Key</label>
+                    <input type="password" id="openaiKey" name="openai_key" 
+                           value="{{.Config.Provider.OpenAIKey}}"
+                           placeholder="sk-...">
+                    <small class="form-hint">Your OpenAI API key</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="openaiEmbedModel">Embedding Model</label>
+                    <select id="openaiEmbedModel" name="openai_embed_model">
+                        <option value="text-embedding-3-small" {{if eq .Config.Provider.OpenAIEmbedModel "text-embedding-3-small"}}selected{{end}}>text-embedding-3-small</option>
+                        <option value="text-embedding-3-large" {{if eq .Config.Provider.OpenAIEmbedModel "text-embedding-3-large"}}selected{{end}}>text-embedding-3-large</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="openaiChatModel">Chat Model</label>
+                    <select id="openaiChatModel" name="openai_chat_model">
+                        <option value="gpt-4" {{if eq .Config.Provider.OpenAIChatModel "gpt-4"}}selected{{end}}>GPT-4</option>
+                        <option value="gpt-4-turbo" {{if eq .Config.Provider.OpenAIChatModel "gpt-4-turbo"}}selected{{end}}>GPT-4 Turbo</option>
+                        <option value="gpt-3.5-turbo" {{if eq .Config.Provider.OpenAIChatModel "gpt-3.5-turbo"}}selected{{end}}>GPT-3.5 Turbo</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Anthropic Settings -->
+            <div id="anthropicSettings" class="provider-settings">
+                <h3>Anthropic Configuration</h3>
+                
+                <div class="form-group">
+                    <label for="anthropicKey">API Key</label>
+                    <input type="password" id="anthropicKey" name="anthropic_key" 
+                           value="{{.Config.Provider.AnthropicKey}}"
+                           placeholder="sk-ant-...">
+                    <small class="form-hint">Your Anthropic API key</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="anthropicEmbedModel">Embedding Model</label>
+                    <input type="text" id="anthropicEmbedModel" name="anthropic_embed_model" 
+                           value="{{.Config.Provider.AnthropicEmbedModel}}"
+                           placeholder="voyage-2">
+                    <small class="form-hint">Voyage AI model for embeddings</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="anthropicChatModel">Chat Model</label>
+                    <select id="anthropicChatModel" name="anthropic_chat_model">
+                        <option value="claude-3-opus-20240229" {{if eq .Config.Provider.AnthropicChatModel "claude-3-opus-20240229"}}selected{{end}}>Claude 3 Opus</option>
+                        <option value="claude-3-sonnet-20240229" {{if eq .Config.Provider.AnthropicChatModel "claude-3-sonnet-20240229"}}selected{{end}}>Claude 3 Sonnet</option>
+                        <option value="claude-3-haiku-20240307" {{if eq .Config.Provider.AnthropicChatModel "claude-3-haiku-20240307"}}selected{{end}}>Claude 3 Haiku</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <button type="button" class="btn-secondary" onclick="testConnection()">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                    </svg>
+                    Test Connection
+                </button>
+            </div>
+        </section>
+
+        <!-- Watched Folders Section -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2>Watched Folders</h2>
+                <p class="section-description">Automatically ingest files from these folders when they are added or modified.</p>
+            </div>
+
+            <div id="watchedFoldersList" class="watched-folders-list">
+                {{range $index, $folder := .Config.Folders}}
+                <div class="folder-item">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                    </svg>
+                    <span class="folder-path">{{$folder}}</span>
+                    <button type="button" class="btn-icon btn-remove" onclick="removeFolder({{$index}})" title="Remove folder">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                        </svg>
+                    </button>
+                </div>
+                {{end}}
+                {{if not .Config.Folders}}
+                <div class="empty-state">
+                    <p>No watched folders configured</p>
+                </div>
+                {{end}}
+            </div>
+
+            <div class="form-group">
+                <label for="newFolderPath">Add Folder</label>
+                <div class="input-with-button">
+                    <input type="text" id="newFolderPath" placeholder="/path/to/folder">
+                    <button type="button" class="btn-secondary" onclick="addFolder()">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/>
+                        </svg>
+                        Add
+                    </button>
+                </div>
+                <small class="form-hint">Enter the full path to a folder to watch for changes</small>
+            </div>
+        </section>
+
+        <!-- Guardrails Section -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2>Guardrails</h2>
+                <p class="section-description">Configure safety and privacy features for document ingestion.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="piiDetection">PII Detection</label>
+                <select id="piiDetection" name="pii_detection">
+                    <option value="strict" {{if eq .Config.Guardrails.PIIDetection "strict"}}selected{{end}}>Strict - Block all potential PII</option>
+                    <option value="normal" {{if eq .Config.Guardrails.PIIDetection "normal"}}selected{{end}}>Normal - Warn on common PII patterns</option>
+                    <option value="off" {{if eq .Config.Guardrails.PIIDetection "off"}}selected{{end}}>Off - No PII detection</option>
+                </select>
+                <small class="form-hint">Detect and warn about personally identifiable information</small>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="autoSummarize" name="auto_summarize" 
+                           {{if .Config.Guardrails.AutoSummarize}}checked{{end}}>
+                    <span>Auto-summarize documents on ingestion</span>
+                </label>
+                <small class="form-hint">Automatically generate summaries for ingested documents</small>
+            </div>
+
+            <div class="form-group">
+                <label for="maxFileSize">Max File Size (MB)</label>
+                <input type="number" id="maxFileSize" name="max_file_size_mb" 
+                       value="{{.Config.Guardrails.MaxFileSizeMB}}"
+                       min="1" max="100">
+                <small class="form-hint">Maximum file size for ingestion</small>
+            </div>
+
+            <div class="form-group">
+                <label for="maxConcurrent">Max Concurrent Ingestions</label>
+                <input type="number" id="maxConcurrent" name="max_concurrent" 
+                       value="{{.Config.Guardrails.MaxConcurrent}}"
+                       min="1" max="10">
+                <small class="form-hint">Number of files to process simultaneously</small>
+            </div>
+        </section>
+    </form>
 </div>
+
+<script>
+// Track watched folders in memory
+let watchedFolders = [{{range $index, $folder := .Config.Folders}}{{if $index}},{{end}}"{{$folder}}"{{end}}];
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateProviderFields();
+});
+
+// Update provider-specific fields visibility
+function updateProviderFields() {
+    const providerType = document.getElementById('providerType').value;
+    const privacyMode = document.getElementById('privacyMode').checked;
+    
+    // Hide all provider settings
+    document.getElementById('ollamaSettings').style.display = 'none';
+    document.getElementById('openaiSettings').style.display = 'none';
+    document.getElementById('anthropicSettings').style.display = 'none';
+    
+    // Show selected provider settings
+    if (providerType === 'ollama') {
+        document.getElementById('ollamaSettings').style.display = 'block';
+    } else if (providerType === 'openai') {
+        document.getElementById('openaiSettings').style.display = 'block';
+    } else if (providerType === 'anthropic') {
+        document.getElementById('anthropicSettings').style.display = 'block';
+    }
+    
+    // Disable cloud providers in privacy mode
+    const providerSelect = document.getElementById('providerType');
+    const openaiOption = providerSelect.querySelector('option[value="openai"]');
+    const anthropicOption = providerSelect.querySelector('option[value="anthropic"]');
+    
+    if (privacyMode) {
+        openaiOption.disabled = true;
+        anthropicOption.disabled = true;
+        if (providerType !== 'ollama') {
+            providerSelect.value = 'ollama';
+            updateProviderFields();
+        }
+    } else {
+        openaiOption.disabled = false;
+        anthropicOption.disabled = false;
+    }
+}
+
+// Toggle privacy mode
+function togglePrivacyMode() {
+    const privacyMode = document.getElementById('privacyMode').checked;
+    const providerType = document.getElementById('providerType').value;
+    
+    if (privacyMode && providerType !== 'ollama') {
+        if (confirm('Privacy mode requires Ollama provider. Switch to Ollama now?')) {
+            document.getElementById('providerType').value = 'ollama';
+            updateProviderFields();
+        } else {
+            document.getElementById('privacyMode').checked = false;
+        }
+    }
+    
+    updateProviderFields();
+}
+
+// Add a watched folder
+function addFolder() {
+    const input = document.getElementById('newFolderPath');
+    const path = input.value.trim();
+    
+    if (!path) {
+        if (typeof showToast === 'function') {
+            showToast('Please enter a folder path', 'error');
+        }
+        return;
+    }
+    
+    if (watchedFolders.includes(path)) {
+        if (typeof showToast === 'function') {
+            showToast('Folder is already in the watch list', 'error');
+        }
+        return;
+    }
+    
+    watchedFolders.push(path);
+    input.value = '';
+    renderWatchedFolders();
+    
+    if (typeof showToast === 'function') {
+        showToast('Folder added to watch list', 'success');
+    }
+}
+
+// Remove a watched folder
+function removeFolder(index) {
+    if (confirm('Remove this folder from the watch list?')) {
+        watchedFolders.splice(index, 1);
+        renderWatchedFolders();
+        
+        if (typeof showToast === 'function') {
+            showToast('Folder removed from watch list', 'info');
+        }
+    }
+}
+
+// Render watched folders list
+function renderWatchedFolders() {
+    const container = document.getElementById('watchedFoldersList');
+    
+    if (watchedFolders.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <p>No watched folders configured</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = watchedFolders.map((folder, index) => `
+        <div class="folder-item">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+            </svg>
+            <span class="folder-path">${folder}</span>
+            <button type="button" class="btn-icon btn-remove" onclick="removeFolder(${index})" title="Remove folder">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Test provider connection
+async function testConnection() {
+    const providerType = document.getElementById('providerType').value;
+    const formData = new FormData(document.getElementById('settingsForm'));
+    
+    // Show loading state
+    if (typeof showToast === 'function') {
+        showToast('Testing connection...', 'info');
+    }
+    
+    try {
+        const response = await fetch('/api/settings/test', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            if (typeof showToast === 'function') {
+                showToast('Connection successful!', 'success');
+            }
+        } else {
+            if (typeof showToast === 'function') {
+                showToast(result.error || 'Connection test failed', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Connection test failed:', error);
+        if (typeof showToast === 'function') {
+            showToast('Connection test failed: ' + error.message, 'error');
+        }
+    }
+}
+
+// Save settings
+async function saveSettings() {
+    const formData = new FormData(document.getElementById('settingsForm'));
+    
+    // Add watched folders to form data
+    formData.delete('folders'); // Clear any existing
+    watchedFolders.forEach(folder => {
+        formData.append('folders', folder);
+    });
+    
+    // Show loading state
+    if (typeof showToast === 'function') {
+        showToast('Saving settings...', 'info');
+    }
+    
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            if (typeof showToast === 'function') {
+                showToast('Settings saved successfully! Restart may be required for some changes.', 'success');
+            }
+        } else {
+            if (typeof showToast === 'function') {
+                showToast(result.error || 'Failed to save settings', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to save settings:', error);
+        if (typeof showToast === 'function') {
+            showToast('Failed to save settings: ' + error.message, 'error');
+        }
+    }
+}
+</script>
+
+<style>
+/* Settings Container */
+.settings-container {
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* Settings Header */
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.settings-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text);
+}
+
+.settings-title svg {
+    color: var(--primary);
+}
+
+.settings-title h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+/* Settings Form */
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* Settings Section */
+.settings-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.section-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.section-header h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.section-description {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* Form Groups */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group input[type="number"],
+.form-group select {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+    color: var(--text);
+    font-size: 0.875rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.form-group input:disabled,
+.form-group select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--surface);
+}
+
+.form-hint {
+    display: block;
+    margin-top: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* Toggle Switch */
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-label input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 48px;
+    height: 24px;
+    background: var(--border);
+    border-radius: 12px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.toggle-label input:checked + .toggle-slider {
+    background: var(--primary);
+}
+
+.toggle-label input:checked + .toggle-slider::before {
+    transform: translateX(24px);
+}
+
+.toggle-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+}
+
+/* Checkbox Label */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.checkbox-label span {
+    font-size: 0.875rem;
+    color: var(--text);
+}
+
+/* Provider Settings */
+.provider-settings {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: var(--background);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+.provider-settings h3 {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* Watched Folders */
+.watched-folders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.folder-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.folder-item:hover {
+    border-color: var(--primary);
+}
+
+.folder-item svg {
+    flex-shrink: 0;
+    color: var(--primary);
+}
+
+.folder-path {
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--text);
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn-remove {
+    color: var(--error);
+}
+
+.btn-remove:hover {
+    background: var(--error-light);
+}
+
+/* Input with Button */
+.input-with-button {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.input-with-button input {
+    flex: 1;
+}
+
+.input-with-button button {
+    flex-shrink: 0;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    background: var(--background);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .settings-container {
+        padding: 1rem;
+    }
+    
+    .settings-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .input-with-button {
+        flex-direction: column;
+    }
+    
+    .input-with-button button {
+        width: 100%;
+    }
+}
+</style>
 {{end}}
+

@@ -39,3 +39,260 @@ body {
 h1 {
     margin-bottom: 1rem;
 }
+
+/* ============================================================================
+   Toast Notification System
+   Requirements: 17.1-17.5
+   ============================================================================ */
+
+.toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 300px;
+    max-width: 500px;
+    padding: 1rem;
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    pointer-events: auto;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease-in-out;
+}
+
+.toast-show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast-hide {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+}
+
+.toast-message {
+    flex: 1;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #374151;
+}
+
+.toast-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    padding: 0.25rem;
+    cursor: pointer;
+    color: #9ca3af;
+    transition: color 0.2s;
+    border-radius: 0.25rem;
+}
+
+.toast-close:hover {
+    color: #4b5563;
+    background: #f3f4f6;
+}
+
+/* Toast variants */
+.toast-success {
+    border-left: 4px solid #10b981;
+}
+
+.toast-success .toast-icon {
+    color: #10b981;
+}
+
+.toast-error {
+    border-left: 4px solid #ef4444;
+}
+
+.toast-error .toast-icon {
+    color: #ef4444;
+}
+
+.toast-info {
+    border-left: 4px solid #3b82f6;
+}
+
+.toast-info .toast-icon {
+    color: #3b82f6;
+}
+
+.toast-warning {
+    border-left: 4px solid #f59e0b;
+}
+
+.toast-warning .toast-icon {
+    color: #f59e0b;
+}
+
+/* ============================================================================
+   Command Palette
+   Requirements: 18.1-18.5
+   ============================================================================ */
+
+.command-palette {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 10vh;
+}
+
+.command-palette.hidden {
+    display: none;
+}
+
+.command-palette-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.command-palette-content {
+    position: relative;
+    width: 90%;
+    max-width: 600px;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    animation: commandPaletteSlideIn 0.2s ease-out;
+}
+
+@keyframes commandPaletteSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.command-input {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    border: none;
+    border-bottom: 1px solid #e5e7eb;
+    outline: none;
+    background: white;
+}
+
+.command-input::placeholder {
+    color: #9ca3af;
+}
+
+.command-list {
+    list-style: none;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.command-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-radius: 0.5rem;
+    transition: background 0.15s;
+}
+
+.command-item:hover {
+    background: #f3f4f6;
+}
+
+.command-item.selected {
+    background: #eff6ff;
+    border: 1px solid #3b82f6;
+}
+
+.command-item-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.875rem;
+}
+
+.command-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.command-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.command-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+.command-description {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.125rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Scrollbar styling for command list */
+.command-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.command-list::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 4px;
+}
+
+.command-list::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+}
+
+.command-list::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* ============================================================================
+   Utility Classes
+   ============================================================================ */
+
+.hidden {
+    display: none !important;
+}

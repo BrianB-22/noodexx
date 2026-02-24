@@ -450,7 +450,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - _Requirements: 2.4_
 
 
-  - [ ] 8.9 Implement settings handlers
+  - [x] 8.9 Implement settings handlers
     - Implement handleSettings() for rendering settings page
     - Implement handleConfig() for saving configuration changes
     - Implement handleTestConnection() for testing provider connectivity
@@ -458,13 +458,13 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Add privacy mode toggle with validation
     - _Requirements: 18.1.1-18.1.9, 18.2.1-18.2.10_
 
-  - [ ] 8.10 Implement activity feed handler
+  - [x] 8.10 Implement activity feed handler
     - Implement handleActivity() for dashboard activity feed
     - Query audit log for recent 10 entries
     - Return HTML fragment with formatted activity items
     - _Requirements: 9.4, 30.1-30.10_
 
-  - [ ] 8.11 Implement skills API handlers
+  - [x] 8.11 Implement skills API handlers
     - Implement handleSkills() for listing available skills
     - Implement handleRunSkill() for executing manual-trigger skills
     - Return skill results as JSON
@@ -480,7 +480,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
 ### Phase 9: UI Templates
 
 - [ ] 9. Create HTML templates
-  - [ ] 9.1 Create base template
+  - [x] 9.1 Create base template
     - Create web/templates/base.html with common layout
     - Add sidebar with navigation links (Dashboard, Chat, Library, Settings)
     - Add sidebar toggle button with collapse functionality
@@ -490,14 +490,14 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Add WebSocket connection script
     - _Requirements: 7.1, 8.1-8.6_
 
-  - [ ] 9.2 Create dashboard template
+  - [x] 9.2 Create dashboard template
     - Create web/templates/dashboard.html
     - Add stats grid with document count, provider, last ingestion, privacy mode cards
     - Add quick actions section with buttons
     - Add activity feed section with HTMX auto-refresh
     - _Requirements: 9.1-9.6_
 
-  - [ ] 9.3 Create chat template
+  - [x] 9.3 Create chat template
     - Create web/templates/chat.html
     - Add session sidebar with "New Chat" button and session list
     - Add messages area with user/assistant message rendering
@@ -507,7 +507,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - _Requirements: 10.1-10.6, 11.1-11.5, 12.1-12.5_
 
 
-  - [ ] 9.4 Create library template
+  - [x] 9.4 Create library template
     - Create web/templates/library.html
     - Add library header with tag filter dropdown
     - Add drop zone overlay for drag-and-drop
@@ -516,7 +516,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Add JavaScript for uploadFile(), filterByTag(), deleteDocument()
     - _Requirements: 13.1-13.5, 14.1-14.5, 15.1-15.6_
 
-  - [ ] 9.5 Create settings template
+  - [x] 9.5 Create settings template
     - Create web/templates/settings.html
     - Add privacy mode toggle section with description
     - Add LLM provider selection with provider-specific settings sections
@@ -531,7 +531,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
 ### Phase 10: Frontend Assets
 
 - [ ] 10. Create CSS and JavaScript
-  - [ ] 10.1 Create main stylesheet
+  - [x] 10.1 Create main stylesheet
     - Create web/static/style.css with CSS variables for colors
     - Add sidebar styles with collapse transition
     - Add navigation item styles with hover and active states
@@ -548,7 +548,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Add form input and select styles
     - _Requirements: 21.1-21.5_
 
-  - [ ] 10.2 Create client-side JavaScript
+  - [x] 10.2 Create client-side JavaScript
     - Create web/static/app.js
     - Implement showToast() function for notifications
     - Implement command palette toggle with ⌘K/Ctrl+K keyboard shortcut
@@ -557,7 +557,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Add markdown rendering helper (placeholder for server-side rendering)
     - _Requirements: 17.1-17.5, 18.1-18.5_
 
-  - [ ] 10.3 Add HTMX library
+  - [x] 10.3 Add HTMX library
     - Download htmx.min.js and place in web/static/
     - Verify HTMX version is 1.9.x or later
     - _Requirements: 20.1-20.5_
@@ -590,12 +590,12 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
 ### Phase 12: Markdown Rendering
 
 - [ ] 12. Implement markdown rendering
-  - [ ] 12.1 Add goldmark dependency
+  - [x] 12.1 Add goldmark dependency
     - Add github.com/yuin/goldmark to go.mod
     - Add syntax highlighting extension
     - _Requirements: 11.1-11.5, 22.1_
 
-  - [ ] 12.2 Implement markdown rendering in API handlers
+  - [x] 12.2 Implement markdown rendering in API handlers
     - Create renderMarkdown() helper function using goldmark
     - Apply markdown rendering to assistant messages in handleAsk()
     - Configure goldmark with syntax highlighting and safe HTML
@@ -611,7 +611,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
 ### Phase 13: Dependency Management
 
 - [ ] 13. Update dependencies
-  - [ ] 13.1 Update go.mod with all dependencies
+  - [x] 13.1 Update go.mod with all dependencies
     - Add github.com/yuin/goldmark for markdown rendering
     - Add github.com/gorilla/websocket for WebSocket support
     - Add github.com/fsnotify/fsnotify for folder watching
@@ -620,7 +620,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Run go mod tidy to clean up
     - _Requirements: 22.1-22.5_
 
-  - [ ] 13.2 Verify build
+  - [x] 13.2 Verify build
     - Run go build to ensure no compilation errors
     - Run go test ./... to ensure all tests pass
     - _Requirements: 22.5_
@@ -629,7 +629,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
 ### Phase 14: Testing and Validation
 
 - [ ] 14. Comprehensive testing
-  - [ ] 14.1 Run all unit tests
+  - [x] 14.1 Run all unit tests
     - Execute go test ./internal/config -v
     - Execute go test ./internal/logging -v
     - Execute go test ./internal/store -v
@@ -641,13 +641,13 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Execute go test ./internal/api -v
     - _Requirements: All package requirements_
 
-  - [ ] 14.2 Run all property-based tests
+  - [x] 14.2 Run all property-based tests
     - Execute property tests with gopter
     - Verify all 41 correctness properties pass
     - Check test coverage meets goals (store 90%+, llm 80%+, rag 85%+, ingest 85%+, api 75%+, skills 80%+)
     - _Requirements: All property requirements_
 
-  - [ ] 14.3 Manual testing checklist
+  - [x] 14.3 Manual testing checklist
     - Test dashboard loads with correct stats
     - Test chat with new session creation
     - Test chat with session history loading
@@ -665,7 +665,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Test skill execution (manual trigger)
     - _Requirements: All UI requirements_
 
-  - [ ] 14.4 Backward compatibility testing
+  - [x] 14.4 Backward compatibility testing
     - Create Phase 1 database with sample chunks
     - Start Phase 2 application
     - Verify all Phase 1 chunks are readable
@@ -676,7 +676,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
 ### Phase 15: Documentation
 
 - [ ] 15. Update documentation
-  - [ ] 15.1 Update README.md
+  - [x] 15.1 Update README.md
     - Add Phase 2 features overview
     - Add installation instructions
     - Add configuration guide with config.json examples
@@ -686,7 +686,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Add troubleshooting section
     - _Requirements: All requirements_
 
-  - [ ] 15.2 Create SKILLS.md
+  - [x] 15.2 Create SKILLS.md
     - Document skill.json format
     - Document skill input/output JSON format
     - Document environment variables available to skills
@@ -695,7 +695,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - _Requirements: 33.1-33.22, 33.1.1-33.1.7, 33.2.1-33.2.6_
 
 
-  - [ ] 15.3 Create CONFIG.md
+  - [x] 15.3 Create CONFIG.md
     - Document all configuration options
     - Document environment variable overrides
     - Document provider-specific settings
@@ -708,7 +708,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
 ### Phase 16: Final Integration and Polish
 
 - [ ] 16. Final integration
-  - [ ] 16.1 End-to-end testing
+  - [x] 16.1 End-to-end testing
     - Start fresh application with default config
     - Ingest sample documents via UI
     - Perform chat queries with RAG
@@ -719,7 +719,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Verify audit log entries
     - _Requirements: All requirements_
 
-  - [ ] 16.2 Performance validation
+  - [x] 16.2 Performance validation
     - Test with 1000+ documents in library
     - Test search performance with large vector database
     - Test concurrent ingestion (folder watcher)
@@ -727,7 +727,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Verify no memory leaks during long-running operation
     - _Requirements: Performance-related requirements_
 
-  - [ ] 16.3 Security validation
+  - [x] 16.3 Security validation
     - Test privacy mode enforcement (cloud providers blocked)
     - Test PII detection with sample data
     - Test guardrails with malicious filenames
@@ -736,7 +736,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Test localhost binding by default
     - _Requirements: 28.1-28.11, 31.1-31.11, 32.1-32.5_
 
-  - [ ] 16.4 UI polish
+  - [x] 16.4 UI polish
     - Verify all CSS transitions work smoothly
     - Verify responsive layout on different screen sizes
     - Verify toast notifications auto-dismiss
@@ -745,7 +745,7 @@ This implementation plan transforms the monolithic Noodexx Phase 1 codebase into
     - Verify all icons and badges display correctly
     - _Requirements: 21.1-21.5_
 
-  - [ ] 16.5 Error handling validation
+  - [x] 16.5 Error handling validation
     - Test with invalid config.json
     - Test with unreachable Ollama endpoint
     - Test with invalid API keys

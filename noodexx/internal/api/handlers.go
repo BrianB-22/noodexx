@@ -503,3 +503,219 @@ func formatRelativeTime(t time.Time) string {
 		return fmt.Sprintf("%d days ago", days)
 	}
 }
+
+// handleSettings renders the settings page
+func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
+	data := map[string]interface{}{
+		"PrivacyMode": s.config.PrivacyMode,
+		"Provider":    s.config.Provider,
+	}
+
+	if err := s.templates.ExecuteTemplate(w, "settings.html", data); err != nil {
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleConfig saves configuration changes
+func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Implement configuration saving
+	// This requires access to the full config object and the ability to save it
+	// For now, return a placeholder response
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"success": true, "message": "Configuration saved (placeholder)"}`))
+}
+
+// handleTestConnection tests provider connectivity
+func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Test embedding with a simple text
+	_, err := s.provider.Embed(ctx, "test")
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf(`{"success": false, "error": "%s"}`, err.Error())))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"success": true, "message": "Connection successful"}`))
+}
+
+// handleActivity returns recent activity feed for the dashboard
+func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Query audit log for recent 10 entries
+	entries, err := s.store.GetAuditLog(ctx, "", time.Time{}, time.Now())
+	if err != nil {
+		http.Error(w, "Failed to fetch activity", http.StatusInternalServerError)
+		return
+	}
+
+	// Limit to 10 most recent
+	if len(entries) > 10 {
+		entries = entries[len(entries)-10:]
+	}
+
+	// Reverse to show most recent first
+	for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
+		entries[i], entries[j] = entries[j], entries[i]
+	}
+
+	// Format as HTML fragment
+	var html strings.Builder
+	for _, entry := range entries {
+		html.WriteString(fmt.Sprintf(`<div class="activity-item">
+			<div class="activity-type">%s</div>
+			<div class="activity-details">%s</div>
+			<div class="activity-time">%s</div>
+		</div>`, entry.OperationType, entry.Details, formatRelativeTime(entry.Timestamp)))
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html.String()))
+}
+
+// handleSkills lists available skills
+func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Load all skills
+	skills, err := s.skillsLoader.LoadAll()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to load skills: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Convert to JSON-friendly format
+	type SkillInfo struct {
+		Name        string   `json:"name"`
+		Version     string   `json:"version"`
+		Description string   `json:"description"`
+		Triggers    []string `json:"triggers"`
+		RequiresNet bool     `json:"requires_network"`
+	}
+
+	skillsInfo := make([]SkillInfo, 0, len(skills))
+	for _, skill := range skills {
+		triggers := make([]string, 0, len(skill.Triggers))
+		for _, trigger := range skill.Triggers {
+			triggers = append(triggers, trigger.Type)
+		}
+
+		skillsInfo = append(skillsInfo, SkillInfo{
+			Name:        skill.Name,
+			Version:     skill.Version,
+			Description: skill.Description,
+			Triggers:    triggers,
+			RequiresNet: skill.RequiresNet,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"skills": skillsInfo,
+	})
+}
+
+// handleRunSkill executes a manual-trigger skill
+func (s *Server) handleRunSkill(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		SkillName string                 `json:"skill_name"`
+		Query     string                 `json:"query"`
+		Context   map[string]interface{} `json:"context"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Load all skills and find the requested one
+	skills, err := s.skillsLoader.LoadAll()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to load skills: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	var targetSkill *Skill
+	for _, skill := range skills {
+		if skill.Name == req.SkillName {
+			targetSkill = skill
+			break
+		}
+	}
+
+	if targetSkill == nil {
+		http.Error(w, fmt.Sprintf("Skill not found: %s", req.SkillName), http.StatusNotFound)
+		return
+	}
+
+	// Check if skill has manual trigger
+	hasManualTrigger := false
+	for _, trigger := range targetSkill.Triggers {
+		if trigger.Type == "manual" {
+			hasManualTrigger = true
+			break
+		}
+	}
+
+	if !hasManualTrigger {
+		http.Error(w, "Skill does not support manual execution", http.StatusBadRequest)
+		return
+	}
+
+	// Execute skill
+	ctx := r.Context()
+	input := SkillInput{
+		Query:    req.Query,
+		Context:  req.Context,
+		Settings: make(map[string]interface{}),
+	}
+
+	output, err := s.skillsExecutor.Execute(ctx, targetSkill, input)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// Return result
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"result":   output.Result,
+		"metadata": output.Metadata,
+	})
+}

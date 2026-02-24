@@ -11,13 +11,15 @@ import (
 
 // Server holds dependencies and provides HTTP handlers
 type Server struct {
-	store     Store
-	provider  LLMProvider
-	ingester  Ingester
-	searcher  Searcher
-	wsHub     *WebSocketHub
-	templates *template.Template
-	config    *ServerConfig
+	store          Store
+	provider       LLMProvider
+	ingester       Ingester
+	searcher       Searcher
+	wsHub          *WebSocketHub
+	templates      *template.Template
+	config         *ServerConfig
+	skillsLoader   SkillsLoader
+	skillsExecutor SkillsExecutor
 }
 
 // Store interface for API operations
@@ -50,6 +52,48 @@ type Ingester interface {
 // Searcher interface for RAG search
 type Searcher interface {
 	Search(ctx context.Context, queryVec []float32, topK int) ([]Chunk, error)
+}
+
+// SkillsLoader interface for loading skills
+type SkillsLoader interface {
+	LoadAll() ([]*Skill, error)
+}
+
+// SkillsExecutor interface for executing skills
+type SkillsExecutor interface {
+	Execute(ctx context.Context, skill *Skill, input SkillInput) (*SkillOutput, error)
+}
+
+// Skill represents a loaded skill
+type Skill struct {
+	Name        string
+	Version     string
+	Description string
+	Executable  string
+	Triggers    []SkillTrigger
+	Timeout     time.Duration
+	RequiresNet bool
+	Path        string
+}
+
+// SkillTrigger defines when a skill executes
+type SkillTrigger struct {
+	Type       string
+	Parameters map[string]interface{}
+}
+
+// SkillInput is the input to a skill
+type SkillInput struct {
+	Query    string                 `json:"query"`
+	Context  map[string]interface{} `json:"context"`
+	Settings map[string]interface{} `json:"settings"`
+}
+
+// SkillOutput is the output from a skill
+type SkillOutput struct {
+	Result   string                 `json:"result"`
+	Error    string                 `json:"error"`
+	Metadata map[string]interface{} `json:"metadata"`
 }
 
 // Message represents a chat message
@@ -106,12 +150,12 @@ type ServerConfig struct {
 }
 
 // NewServer creates a server with dependencies and loads templates
-func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig) (*Server, error) {
-	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, "web/templates/*.html")
+func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor) (*Server, error) {
+	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, skillsLoader, skillsExecutor, "web/templates/*.html")
 }
 
 // NewServerWithTemplatePath creates a server with a custom template path (useful for testing)
-func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, templatePath string) (*Server, error) {
+func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, templatePath string) (*Server, error) {
 	// Load templates from the specified path
 	tmpl, err := template.ParseGlob(templatePath)
 	if err != nil {
@@ -119,13 +163,15 @@ func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Inges
 	}
 
 	srv := &Server{
-		store:     store,
-		provider:  provider,
-		ingester:  ingester,
-		searcher:  searcher,
-		wsHub:     NewWebSocketHub(),
-		templates: tmpl,
-		config:    config,
+		store:          store,
+		provider:       provider,
+		ingester:       ingester,
+		searcher:       searcher,
+		wsHub:          NewWebSocketHub(),
+		templates:      tmpl,
+		config:         config,
+		skillsLoader:   skillsLoader,
+		skillsExecutor: skillsExecutor,
 	}
 
 	// Start WebSocket hub
@@ -154,21 +200,11 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/sessions", s.handleSessions)
 	mux.HandleFunc("/api/session/", s.handleSessionHistory)
 	mux.HandleFunc("/api/config", s.handleConfig)
+	mux.HandleFunc("/api/test-connection", s.handleTestConnection)
 	mux.HandleFunc("/api/activity", s.handleActivity)
+	mux.HandleFunc("/api/skills", s.handleSkills)
+	mux.HandleFunc("/api/skills/run", s.handleRunSkill)
 
 	// WebSocket
 	mux.HandleFunc("/ws", s.handleWebSocket)
-}
-
-// Placeholder handlers for settings and activity - to be implemented in task 8.9 and 8.10
-func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
-
-func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
