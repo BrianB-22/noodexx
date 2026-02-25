@@ -754,7 +754,7 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Test embedding with a simple text
-	embedding, err := s.provider.Embed(ctx, "test")
+	_, err := s.provider.Embed(ctx, "test")
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)

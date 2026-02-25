@@ -194,7 +194,8 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		logger.Info("Server listening on http://%s", addr)
+		log.Printf("Server listening on http://%s", addr)
+		log.Printf("Press Ctrl-C to quit")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("Server error: %v", err)
 		}
