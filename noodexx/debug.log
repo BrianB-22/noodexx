@@ -1,0 +1,12 @@
+[2026-02-24 18:39:57] INFO [main] main.go:74 main.main Starting Noodexx v1.0.0...
+[2026-02-24 18:39:57] INFO [main] main.go:83 main.main Database initialized
+[2026-02-24 18:39:57] INFO [main] main.go:103 main.main LLM provider: ollama (privacy mode: true)
+[2026-02-24 18:39:57] INFO [main] main.go:109 main.main RAG components initialized
+[2026-02-24 18:39:57] INFO [main] main.go:114 main.main Ingester initialized
+[2026-02-24 18:39:57] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:39:57] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:39:57] INFO [main] main.go:123 main.main Loaded 0 skills
+[2026-02-24 18:39:57] DEBUG [watcher] watcher.go:68 watcher.(*Watcher).Start starting file watcher
+[2026-02-24 18:39:57] DEBUG [watcher] watcher.go:105 watcher.(*Watcher).Start file watcher started folder_count=0
+[2026-02-24 18:39:57] INFO [main] main.go:179 main.main API server initialized
+[2026-02-24 18:39:57] INFO [main] main.go:197 main.main.func1 Server listening on http://127.0.0.1:8080

@@ -1,4 +1,4 @@
-![Noodexx Logo](web/static/logo-large.png)
+![Noodexx Logo](noodexx.png)
 
 # Noodexx
 
@@ -136,8 +136,9 @@ The `config.json` file is located in the application directory (same directory a
   "folders": [],
   "logging": {
     "level": "info",
-    "file": "",
-    "max_size_mb": 100,
+    "debug_enabled": true,
+    "file": "debug.log",
+    "max_size_mb": 10,
     "max_backups": 3
   },
   "guardrails": {
@@ -228,13 +229,92 @@ The `config.json` file is located in the application directory (same directory a
   },
   "logging": {
     "level": "debug",
-    "file": "noodexx.log",
+    "debug_enabled": true,
+    "file": "debug.log",
     "max_size_mb": 50,
     "max_backups": 5
   },
   "guardrails": {
     "pii_detection": "off",
     "auto_summarize": false
+  }
+}
+```
+
+### Logging Configuration
+
+The logging system provides dual-output logging with configurable levels and automatic file rotation.
+
+#### Logging Fields
+
+- `level` - Minimum log level to display (valid values: "debug", "info", "warn", "error")
+- `debug_enabled` - Enable file logging (true/false)
+- `file` - Path to debug log file (e.g., "debug.log")
+- `max_size_mb` - Maximum log file size in MB before rotation (default: 10)
+- `max_backups` - Number of rotated log files to keep (default: 3)
+
+#### Log Output Behavior
+
+**Console Output:**
+- Shows only WARN and ERROR messages
+- Minimal format for quick scanning
+- Always enabled
+
+**Debug Log File:**
+- Shows all levels (DEBUG, INFO, WARN, ERROR) when `debug_enabled: true`
+- Includes source location (file:line function)
+- Includes structured context fields
+- Format: `[YYYY-MM-DD HH:MM:SS] LEVEL [component] file.go:line function message key=value`
+
+#### Log Levels
+
+- `debug` - Most verbose, detailed diagnostic info (file processing, cache hits, API calls)
+- `info` - General informational messages (server started, operations completed)
+- `warn` - Potentially harmful situations (skill load failed, using defaults)
+- `error` - Error events (failed operations, exceptions, critical issues)
+
+#### Log Rotation
+
+When the log file reaches `max_size_mb`:
+1. Current file renamed to `debug.log.1`
+2. Existing backups incremented (`debug.log.1` → `debug.log.2`)
+3. Oldest backup deleted if exceeding `max_backups`
+4. New `debug.log` created
+
+#### Examples
+
+**Console-only logging:**
+```json
+{
+  "logging": {
+    "level": "warn",
+    "debug_enabled": false
+  }
+}
+```
+
+**Full debug logging:**
+```json
+{
+  "logging": {
+    "level": "debug",
+    "debug_enabled": true,
+    "file": "debug.log",
+    "max_size_mb": 10,
+    "max_backups": 3
+  }
+}
+```
+
+**Production logging:**
+```json
+{
+  "logging": {
+    "level": "info",
+    "debug_enabled": true,
+    "file": "/var/log/noodexx/debug.log",
+    "max_size_mb": 50,
+    "max_backups": 10
   }
 }
 ```

@@ -16,8 +16,8 @@
   },
   "folders": [],
   "logging": {
-    "level": "debug",  // Valid values: "debug", "info", "warn", "error"
-    "debug_enabled": true,  // Enable file logging
+    "level": "debug",
+    "debug_enabled": true,
     "file": "debug.log",
     "max_size_mb": 10,
     "max_backups": 3
