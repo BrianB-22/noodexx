@@ -83,6 +83,15 @@ func (m *mockSearcher) Search(ctx context.Context, queryVec []float32, topK int)
 	return []Chunk{}, nil
 }
 
+type mockLogger struct{}
+
+func (m *mockLogger) Debug(format string, args ...interface{})         {}
+func (m *mockLogger) Info(format string, args ...interface{})          {}
+func (m *mockLogger) Warn(format string, args ...interface{})          {}
+func (m *mockLogger) Error(format string, args ...interface{})         {}
+func (m *mockLogger) WithContext(key string, value interface{}) Logger { return m }
+func (m *mockLogger) WithFields(fields map[string]interface{}) Logger  { return m }
+
 // Tests
 
 func TestNewServer(t *testing.T) {
@@ -90,13 +99,14 @@ func TestNewServer(t *testing.T) {
 	provider := &mockProvider{}
 	ingester := &mockIngester{}
 	searcher := &mockSearcher{}
+	logger := &mockLogger{}
 	config := &ServerConfig{
 		PrivacyMode: true,
 		Provider:    "ollama",
 	}
 
 	// Use the correct path from the test's perspective (running from noodexx directory)
-	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, "../../web/templates/*.html")
+	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, "../../web/templates/*.html")
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}
@@ -135,12 +145,13 @@ func TestRegisterRoutes(t *testing.T) {
 	provider := &mockProvider{}
 	ingester := &mockIngester{}
 	searcher := &mockSearcher{}
+	logger := &mockLogger{}
 	config := &ServerConfig{
 		PrivacyMode: true,
 		Provider:    "ollama",
 	}
 
-	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, "../../web/templates/*.html")
+	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, "../../web/templates/*.html")
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}
@@ -185,12 +196,13 @@ func TestStaticFileServing(t *testing.T) {
 	provider := &mockProvider{}
 	ingester := &mockIngester{}
 	searcher := &mockSearcher{}
+	logger := &mockLogger{}
 	config := &ServerConfig{
 		PrivacyMode: true,
 		Provider:    "ollama",
 	}
 
-	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, "../../web/templates/*.html")
+	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, "../../web/templates/*.html")
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}

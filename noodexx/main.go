@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +24,36 @@ import (
 
 const version = "1.0.0"
 
+// initializeLogging creates and configures the logger based on configuration
+func initializeLogging(cfg *config.Config) (*logging.Logger, io.Writer, error) {
+	var writer io.Writer
+
+	if cfg.Logging.DebugEnabled {
+		// Create file writer with rotation
+		fileWriter, err := logging.NewFileWriter(
+			cfg.Logging.File,
+			cfg.Logging.MaxSizeMB,
+			cfg.Logging.MaxBackups,
+		)
+		if err != nil {
+			// Log error to stderr and fall back to console-only
+			fmt.Fprintf(os.Stderr, "[ERROR] Failed to create debug log file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[INFO] Falling back to console-only logging\n")
+			writer = os.Stdout
+		} else {
+			// Create multi-writer for dual output (console + file)
+			writer = logging.NewMultiWriter(os.Stdout, fileWriter, true)
+		}
+	} else {
+		// Debug disabled: console-only
+		writer = os.Stdout
+	}
+
+	// Parse log level and create logger
+	level := logging.ParseLevel(cfg.Logging.Level)
+	return logging.NewLogger("main", level, writer), writer, nil
+}
+
 func main() {
 	// Load configuration
 	cfg, err := config.Load("config.json")
@@ -36,7 +67,10 @@ func main() {
 	log.Printf("=============================")
 
 	// Initialize logger
-	logger := logging.NewLogger("main", logging.ParseLevel(cfg.Logging.Level), nil)
+	logger, logWriter, err := initializeLogging(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize logging: %v", err)
+	}
 	logger.Info("Starting Noodexx v%s...", version)
 
 	// Initialize store with migrations
@@ -49,6 +83,7 @@ func main() {
 	logger.Info("Database initialized")
 
 	// Initialize LLM provider
+	llmLogger := logging.NewLogger("llm", logging.ParseLevel(cfg.Logging.Level), logWriter)
 	provider, err := llm.NewProvider(llm.Config{
 		Type:                cfg.Provider.Type,
 		OllamaEndpoint:      cfg.Provider.OllamaEndpoint,
@@ -60,7 +95,7 @@ func main() {
 		AnthropicKey:        cfg.Provider.AnthropicKey,
 		AnthropicEmbedModel: cfg.Provider.AnthropicEmbedModel,
 		AnthropicChatModel:  cfg.Provider.AnthropicChatModel,
-	}, cfg.Privacy.Enabled)
+	}, cfg.Privacy.Enabled, llmLogger)
 	if err != nil {
 		logger.Error("Failed to initialize LLM provider: %v", err)
 		os.Exit(1)
@@ -69,26 +104,30 @@ func main() {
 
 	// Initialize RAG components
 	chunker := rag.NewChunker(500, 50)
-	searcher := rag.NewSearcher(&storeAdapter{store: st})
+	ragLogger := logging.NewLogger("rag", logging.ParseLevel(cfg.Logging.Level), logWriter)
+	searcher := rag.NewSearcher(&storeAdapter{store: st}, ragLogger)
 	logger.Info("RAG components initialized")
 
 	// Initialize ingester
-	ingester := ingest.NewIngester(&providerAdapter{provider: provider}, st, chunker, cfg.Privacy.Enabled, cfg.Guardrails.AutoSummarize)
+	ingestLogger := logging.NewLogger("ingest", logging.ParseLevel(cfg.Logging.Level), logWriter)
+	ingester := ingest.NewIngester(&providerAdapter{provider: provider}, st, chunker, cfg.Privacy.Enabled, cfg.Guardrails.AutoSummarize, ingestLogger)
 	logger.Info("Ingester initialized")
 
 	// Initialize skills
-	skillsLoader := skills.NewLoader("skills", cfg.Privacy.Enabled)
+	skillsLogger := logging.NewLogger("skills", logging.ParseLevel(cfg.Logging.Level), logWriter)
+	skillsLoader := skills.NewLoader("skills", cfg.Privacy.Enabled, skillsLogger)
 	loadedSkills, err := skillsLoader.LoadAll()
 	if err != nil {
 		logger.Warn("Failed to load skills: %v", err)
 	} else {
 		logger.Info("Loaded %d skills", len(loadedSkills))
 	}
-	skillsExecutor := skills.NewExecutor(cfg.Privacy.Enabled)
+	skillsExecutor := skills.NewExecutor(cfg.Privacy.Enabled, skillsLogger)
 
 	// Initialize folder watcher with adapter
+	watcherLogger := logging.NewLogger("watcher", logging.ParseLevel(cfg.Logging.Level), logWriter)
 	watcherStore := &watcherStoreAdapter{store: st}
-	w, err := watcher.NewWatcher(ingester, watcherStore, cfg.Privacy.Enabled)
+	w, err := watcher.NewWatcher(ingester, watcherStore, cfg.Privacy.Enabled, watcherLogger)
 	if err != nil {
 		logger.Error("Failed to initialize watcher: %v", err)
 		os.Exit(1)
@@ -121,6 +160,7 @@ func main() {
 	apiSearcherAdapter := &apiSearcherAdapter{searcher: searcher}
 	apiSkillsLoaderAdapter := &apiSkillsLoaderAdapter{loader: skillsLoader}
 	apiSkillsExecutorAdapter := &apiSkillsExecutorAdapter{executor: skillsExecutor}
+	apiLoggerAdapter := &apiLoggerAdapter{logger: logger}
 
 	apiServer, err := api.NewServer(
 		apiStoreAdapter,
@@ -130,6 +170,7 @@ func main() {
 		apiConfig,
 		apiSkillsLoaderAdapter,
 		apiSkillsExecutorAdapter,
+		apiLoggerAdapter,
 	)
 	if err != nil {
 		logger.Error("Failed to initialize API server: %v", err)

@@ -3,6 +3,7 @@ package skills
 import (
 	"encoding/json"
 	"fmt"
+	"noodexx/internal/logging"
 	"os"
 	"path/filepath"
 	"time"
@@ -43,28 +44,33 @@ type Metadata struct {
 type Loader struct {
 	skillsDir   string
 	privacyMode bool
+	logger      *logging.Logger
 }
 
 // NewLoader creates a skill loader
-func NewLoader(skillsDir string, privacyMode bool) *Loader {
+func NewLoader(skillsDir string, privacyMode bool, logger *logging.Logger) *Loader {
 	return &Loader{
 		skillsDir:   skillsDir,
 		privacyMode: privacyMode,
+		logger:      logger,
 	}
 }
 
 // LoadAll discovers and loads all skills from the skills directory
 func (l *Loader) LoadAll() ([]*Skill, error) {
+	l.logger.WithContext("skills_dir", l.skillsDir).Debug("loading skills")
 	var skills []*Skill
 
 	// Check if skills directory exists
 	if _, err := os.Stat(l.skillsDir); os.IsNotExist(err) {
 		// Skills directory doesn't exist, return empty list (not an error)
+		l.logger.Debug("skills directory does not exist")
 		return skills, nil
 	}
 
 	entries, err := os.ReadDir(l.skillsDir)
 	if err != nil {
+		l.logger.WithContext("error", err.Error()).Error("failed to read skills directory")
 		return nil, fmt.Errorf("failed to read skills directory: %w", err)
 	}
 
@@ -85,19 +91,23 @@ func (l *Loader) LoadAll() ([]*Skill, error) {
 		skill, err := l.loadSkill(skillPath)
 		if err != nil {
 			// Log error but continue loading other skills
-			fmt.Printf("Warning: Failed to load skill %s: %v\n", entry.Name(), err)
+			l.logger.WithFields(map[string]interface{}{
+				"skill_name": entry.Name(),
+				"error":      err.Error(),
+			}).Warn("failed to load skill")
 			continue
 		}
 
 		// Skip network-requiring skills in privacy mode
 		if l.privacyMode && skill.RequiresNet {
-			fmt.Printf("Info: Skipping skill %s: requires network but privacy mode is enabled\n", skill.Name)
+			l.logger.WithContext("skill_name", skill.Name).Debug("skipping skill (requires network)")
 			continue
 		}
 
 		skills = append(skills, skill)
 	}
 
+	l.logger.WithContext("count", len(skills)).Debug("skills loaded")
 	return skills, nil
 }
 

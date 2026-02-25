@@ -3,6 +3,7 @@ package rag
 import (
 	"context"
 	"math"
+	"noodexx/internal/logging"
 )
 
 // Store interface for RAG operations
@@ -19,19 +20,42 @@ type Chunk struct {
 
 // Searcher performs vector similarity search
 type Searcher struct {
-	store Store // Interface to database
+	store  Store // Interface to database
+	logger *logging.Logger
 }
 
 // NewSearcher creates a new Searcher with the given store
-func NewSearcher(store Store) *Searcher {
+func NewSearcher(store Store, logger *logging.Logger) *Searcher {
 	return &Searcher{
-		store: store,
+		store:  store,
+		logger: logger,
 	}
 }
 
 // Search finds relevant chunks using cosine similarity
 func (s *Searcher) Search(ctx context.Context, queryVec []float32, topK int) ([]Chunk, error) {
-	return s.store.Search(ctx, queryVec, topK)
+	logger := s.logger.WithFields(map[string]interface{}{
+		"vector_size": len(queryVec),
+		"limit":       topK,
+	})
+	logger.Debug("starting RAG search")
+
+	results, err := s.store.Search(ctx, queryVec, topK)
+	if err != nil {
+		logger.WithContext("error", err.Error()).Error("search failed")
+		return nil, err
+	}
+
+	minScore := 0.0
+	if len(results) > 0 {
+		minScore = results[len(results)-1].Score
+	}
+
+	logger.WithFields(map[string]interface{}{
+		"result_count": len(results),
+		"min_score":    minScore,
+	}).Debug("search completed")
+	return results, nil
 }
 
 // CosineSimilarity computes similarity between two vectors

@@ -87,8 +87,14 @@ function generateSessionId() {
 
 // Start a new chat session
 function newChat() {
+    console.log('newChat() called');
     currentSessionId = generateSessionId();
+    console.log('New session ID:', currentSessionId);
     const messagesContainer = document.getElementById('messagesContainer');
+    if (!messagesContainer) {
+        console.error('messagesContainer not found!');
+        return;
+    }
     messagesContainer.innerHTML = `
         <div class="welcome-message">
             <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor" style="opacity: 0.3;">

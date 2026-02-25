@@ -81,7 +81,7 @@ func TestIngestText_Basic(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false)
+	ingester := NewIngester(provider, store, chunker, false, false, nil)
 
 	ctx := context.Background()
 	err := ingester.IngestText(ctx, "test.txt", "This is a test document.", []string{"test"})
@@ -104,7 +104,7 @@ func TestIngestText_WithSummary(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, true)
+	ingester := NewIngester(provider, store, chunker, false, true, nil)
 
 	ctx := context.Background()
 	err := ingester.IngestText(ctx, "test.txt", "This is a test document.", []string{"test"})
@@ -127,7 +127,7 @@ func TestIngestText_PIIDetection(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false)
+	ingester := NewIngester(provider, store, chunker, false, false, nil)
 
 	ctx := context.Background()
 	// Text with SSN pattern
@@ -151,7 +151,7 @@ func TestIngestText_GuardrailsCheck(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false)
+	ingester := NewIngester(provider, store, chunker, false, false, nil)
 
 	ctx := context.Background()
 	// Sensitive filename
@@ -175,7 +175,7 @@ func TestIngestURL_PrivacyMode(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, true, false)
+	ingester := NewIngester(provider, store, chunker, true, false, nil)
 
 	ctx := context.Background()
 	err := ingester.IngestURL(ctx, "https://example.com", []string{"test"})
@@ -194,7 +194,7 @@ func TestIngestFile_InvalidExtension(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false)
+	ingester := NewIngester(provider, store, chunker, false, false, nil)
 
 	ctx := context.Background()
 
@@ -221,7 +221,7 @@ func TestIngestFile_OversizedFile(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false)
+	ingester := NewIngester(provider, store, chunker, false, false, nil)
 
 	ctx := context.Background()
 
@@ -260,7 +260,7 @@ func TestGenerateSummary_TruncatesLongText(t *testing.T) {
 	}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, true)
+	ingester := NewIngester(provider, store, chunker, false, true, nil)
 
 	ctx := context.Background()
 	// Create a long text (more than 1000 characters)
@@ -278,7 +278,7 @@ func TestIngestFile_TextFile(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false)
+	ingester := NewIngester(provider, store, chunker, false, false, nil)
 
 	ctx := context.Background()
 
@@ -314,7 +314,7 @@ func TestIngestFile_MarkdownFile(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false)
+	ingester := NewIngester(provider, store, chunker, false, false, nil)
 
 	ctx := context.Background()
 
@@ -346,7 +346,7 @@ func TestIngestFile_PDFFile(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false)
+	ingester := NewIngester(provider, store, chunker, false, false, nil)
 
 	ctx := context.Background()
 

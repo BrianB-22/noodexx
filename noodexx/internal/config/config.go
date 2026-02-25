@@ -38,10 +38,11 @@ type PrivacyConfig struct {
 
 // LoggingConfig controls logging behavior
 type LoggingConfig struct {
-	Level      string `json:"level"` // "debug", "info", "warn", "error"
-	File       string `json:"file"`  // Optional log file path
-	MaxSizeMB  int    `json:"max_size_mb"`
-	MaxBackups int    `json:"max_backups"`
+	Level        string `json:"level"`         // "debug", "info", "warn", "error"
+	DebugEnabled bool   `json:"debug_enabled"` // Enable debug file logging
+	File         string `json:"file"`          // Debug log file path
+	MaxSizeMB    int    `json:"max_size_mb"`   // Max file size before rotation
+	MaxBackups   int    `json:"max_backups"`   // Number of backup files to keep
 }
 
 // GuardrailsConfig controls ingestion safety
@@ -74,7 +75,11 @@ func Load(path string) (*Config, error) {
 		},
 		Folders: []string{},
 		Logging: LoggingConfig{
-			Level: "info",
+			Level:        "info",
+			DebugEnabled: true,
+			File:         "debug.log",
+			MaxSizeMB:    10,
+			MaxBackups:   3,
 		},
 		Guardrails: GuardrailsConfig{
 			MaxFileSizeMB:     10,
@@ -166,6 +171,13 @@ func (c *Config) applyEnvOverrides() {
 	}
 	if v := os.Getenv("NOODEXX_LOG_LEVEL"); v != "" {
 		c.Logging.Level = v
+	}
+	if v := os.Getenv("NOODEXX_DEBUG_ENABLED"); v != "" {
+		if v == "true" {
+			c.Logging.DebugEnabled = true
+		} else if v == "false" {
+			c.Logging.DebugEnabled = false
+		}
 	}
 	if v := os.Getenv("NOODEXX_LOG_FILE"); v != "" {
 		c.Logging.File = v

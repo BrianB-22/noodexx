@@ -8,6 +8,7 @@ import (
 	"noodexx/internal/api"
 	"noodexx/internal/ingest"
 	"noodexx/internal/llm"
+	"noodexx/internal/logging"
 	"noodexx/internal/rag"
 	"noodexx/internal/skills"
 	"noodexx/internal/store"
@@ -455,4 +456,33 @@ func (asea *apiSkillsExecutorAdapter) Execute(ctx context.Context, skill *api.Sk
 		Error:    output.Error,
 		Metadata: output.Metadata,
 	}, nil
+}
+
+// apiLoggerAdapter adapts logging.Logger to api.Logger interface
+type apiLoggerAdapter struct {
+	logger *logging.Logger
+}
+
+func (ala *apiLoggerAdapter) Debug(format string, args ...interface{}) {
+	ala.logger.Debug(format, args...)
+}
+
+func (ala *apiLoggerAdapter) Info(format string, args ...interface{}) {
+	ala.logger.Info(format, args...)
+}
+
+func (ala *apiLoggerAdapter) Warn(format string, args ...interface{}) {
+	ala.logger.Warn(format, args...)
+}
+
+func (ala *apiLoggerAdapter) Error(format string, args ...interface{}) {
+	ala.logger.Error(format, args...)
+}
+
+func (ala *apiLoggerAdapter) WithContext(key string, value interface{}) api.Logger {
+	return &apiLoggerAdapter{logger: ala.logger.WithContext(key, value)}
+}
+
+func (ala *apiLoggerAdapter) WithFields(fields map[string]interface{}) api.Logger {
+	return &apiLoggerAdapter{logger: ala.logger.WithFields(fields)}
 }

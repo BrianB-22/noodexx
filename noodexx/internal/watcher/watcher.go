@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"noodexx/internal/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +21,7 @@ type Watcher struct {
 	privacyMode bool
 	allowedExts []string
 	maxSize     int64
+	logger      *logging.Logger
 }
 
 // Ingester interface for processing files
@@ -43,9 +45,10 @@ type WatchedFolder struct {
 }
 
 // NewWatcher creates a folder watcher with fsnotify initialization
-func NewWatcher(ingester Ingester, store Store, privacyMode bool) (*Watcher, error) {
+func NewWatcher(ingester Ingester, store Store, privacyMode bool, logger *logging.Logger) (*Watcher, error) {
 	fsw, err := fsnotify.NewWatcher()
 	if err != nil {
+		logger.WithContext("error", err.Error()).Error("failed to create fsnotify watcher")
 		return nil, fmt.Errorf("failed to create fsnotify watcher: %w", err)
 	}
 
@@ -56,14 +59,18 @@ func NewWatcher(ingester Ingester, store Store, privacyMode bool) (*Watcher, err
 		privacyMode: privacyMode,
 		allowedExts: []string{".txt", ".md", ".pdf"},
 		maxSize:     10 * 1024 * 1024, // 10MB
+		logger:      logger,
 	}, nil
 }
 
 // Start begins watching configured folders and starts event loop
 func (w *Watcher) Start(ctx context.Context) error {
+	w.logger.Debug("starting file watcher")
+
 	// Load watched folders from database
 	folders, err := w.store.GetWatchedFolders(ctx)
 	if err != nil {
+		w.logger.WithContext("error", err.Error()).Error("failed to load watched folders")
 		return fmt.Errorf("failed to load watched folders: %w", err)
 	}
 
@@ -74,21 +81,28 @@ func (w *Watcher) Start(ctx context.Context) error {
 		}
 
 		if err := w.validatePath(folder.Path); err != nil {
-			log.Printf("Skipping invalid folder %s: %v", folder.Path, err)
+			w.logger.WithFields(map[string]interface{}{
+				"folder_path": folder.Path,
+				"error":       err.Error(),
+			}).Warn("skipping invalid folder")
 			continue
 		}
 
 		if err := w.fsWatcher.Add(folder.Path); err != nil {
-			log.Printf("Failed to watch folder %s: %v", folder.Path, err)
+			w.logger.WithFields(map[string]interface{}{
+				"folder_path": folder.Path,
+				"error":       err.Error(),
+			}).Warn("failed to watch folder")
 			continue
 		}
 
-		log.Printf("Watching folder: %s", folder.Path)
+		w.logger.WithContext("folder_path", folder.Path).Debug("watching folder")
 	}
 
 	// Start event loop in goroutine
 	go w.eventLoop(ctx)
 
+	w.logger.WithContext("folder_count", len(folders)).Debug("file watcher started")
 	return nil
 }
 
@@ -111,13 +125,18 @@ func (w *Watcher) eventLoop(ctx context.Context) {
 			if !ok {
 				return
 			}
-			log.Printf("Watcher error: %v", err)
+			w.logger.WithContext("error", err.Error()).Error("watcher error")
 		}
 	}
 }
 
 // handleEvent processes create/modify/delete events
 func (w *Watcher) handleEvent(ctx context.Context, event fsnotify.Event) {
+	logger := w.logger.WithFields(map[string]interface{}{
+		"file_path":  event.Name,
+		"event_type": event.Op.String(),
+	})
+
 	// Check if it's a file we care about
 	if !w.shouldProcess(event.Name) {
 		return
@@ -125,15 +144,15 @@ func (w *Watcher) handleEvent(ctx context.Context, event fsnotify.Event) {
 
 	switch {
 	case event.Op&fsnotify.Create == fsnotify.Create:
-		log.Printf("File created: %s", event.Name)
+		logger.Debug("file created")
 		w.ingestFile(ctx, event.Name)
 
 	case event.Op&fsnotify.Write == fsnotify.Write:
-		log.Printf("File modified: %s", event.Name)
+		logger.Debug("file modified")
 		w.ingestFile(ctx, event.Name)
 
 	case event.Op&fsnotify.Remove == fsnotify.Remove:
-		log.Printf("File deleted: %s", event.Name)
+		logger.Debug("file deleted")
 		w.deleteFile(ctx, event.Name)
 	}
 }
@@ -199,30 +218,38 @@ func (w *Watcher) validatePath(path string) error {
 
 // AddFolder adds a new folder to watch
 func (w *Watcher) AddFolder(ctx context.Context, path string) error {
+	logger := w.logger.WithContext("folder_path", path)
+	logger.Debug("adding watched folder")
+
 	if err := w.validatePath(path); err != nil {
+		logger.WithContext("error", err.Error()).Error("invalid folder path")
 		return err
 	}
 
 	if err := w.fsWatcher.Add(path); err != nil {
+		logger.WithContext("error", err.Error()).Error("failed to add folder to watcher")
 		return fmt.Errorf("failed to add folder to watcher: %w", err)
 	}
 
 	if err := w.store.AddWatchedFolder(ctx, path); err != nil {
 		// Remove from fsnotify if database save fails
 		w.fsWatcher.Remove(path)
+		logger.WithContext("error", err.Error()).Error("failed to save watched folder")
 		return fmt.Errorf("failed to save watched folder: %w", err)
 	}
 
-	log.Printf("Added watched folder: %s", path)
+	logger.Debug("watched folder added successfully")
 	return nil
 }
 
 // ingestFile processes a file by reading it and calling ingester
 func (w *Watcher) ingestFile(ctx context.Context, path string) {
+	logger := w.logger.WithContext("file_path", path)
+
 	// Read file content
 	content, err := os.ReadFile(path)
 	if err != nil {
-		log.Printf("Failed to read file %s: %v", path, err)
+		logger.WithContext("error", err.Error()).Error("failed to read file")
 		return
 	}
 
@@ -231,17 +258,19 @@ func (w *Watcher) ingestFile(ctx context.Context, path string) {
 
 	// Ingest the text
 	if err := w.ingester.IngestText(ctx, path, string(content), tags); err != nil {
-		log.Printf("Failed to ingest %s: %v", path, err)
+		logger.WithContext("error", err.Error()).Error("failed to ingest file")
 	} else {
-		log.Printf("Successfully ingested %s", path)
+		logger.Debug("file ingested successfully")
 	}
 }
 
 // deleteFile removes chunks for a deleted file
 func (w *Watcher) deleteFile(ctx context.Context, path string) {
+	logger := w.logger.WithContext("file_path", path)
+
 	if err := w.store.DeleteSource(ctx, path); err != nil {
-		log.Printf("Failed to delete chunks for %s: %v", path, err)
+		logger.WithContext("error", err.Error()).Error("failed to delete chunks")
 	} else {
-		log.Printf("Successfully deleted chunks for %s", path)
+		logger.Debug("chunks deleted successfully")
 	}
 }

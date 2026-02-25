@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"noodexx/internal/logging"
 )
 
 // Provider defines the interface for LLM services
@@ -42,7 +43,7 @@ type Config struct {
 }
 
 // NewProvider creates a provider based on config with privacy mode enforcement
-func NewProvider(cfg Config, privacyMode bool) (Provider, error) {
+func NewProvider(cfg Config, privacyMode bool, logger *logging.Logger) (Provider, error) {
 	// Privacy mode enforcement: only allow Ollama when privacy mode is enabled
 	if privacyMode && cfg.Type != "ollama" {
 		return nil, fmt.Errorf("privacy mode is enabled - only Ollama provider is allowed")
@@ -50,17 +51,17 @@ func NewProvider(cfg Config, privacyMode bool) (Provider, error) {
 
 	switch cfg.Type {
 	case "ollama":
-		return NewOllamaProvider(cfg.OllamaEndpoint, cfg.OllamaEmbedModel, cfg.OllamaChatModel), nil
+		return NewOllamaProvider(cfg.OllamaEndpoint, cfg.OllamaEmbedModel, cfg.OllamaChatModel, logger), nil
 	case "openai":
 		if cfg.OpenAIKey == "" {
 			return nil, fmt.Errorf("openai API key is required")
 		}
-		return NewOpenAIProvider(cfg.OpenAIKey, cfg.OpenAIEmbedModel, cfg.OpenAIChatModel), nil
+		return NewOpenAIProvider(cfg.OpenAIKey, cfg.OpenAIEmbedModel, cfg.OpenAIChatModel, logger), nil
 	case "anthropic":
 		if cfg.AnthropicKey == "" {
 			return nil, fmt.Errorf("anthropic API key is required")
 		}
-		return NewAnthropicProvider(cfg.AnthropicKey, cfg.AnthropicEmbedModel, cfg.AnthropicChatModel), nil
+		return NewAnthropicProvider(cfg.AnthropicKey, cfg.AnthropicEmbedModel, cfg.AnthropicChatModel, logger), nil
 	default:
 		return nil, fmt.Errorf("unknown provider type: %s", cfg.Type)
 	}

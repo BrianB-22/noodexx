@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"noodexx/internal/logging"
 	"os"
 	"os/exec"
 	"strings"
@@ -13,12 +14,14 @@ import (
 // Executor runs skills as subprocesses
 type Executor struct {
 	privacyMode bool
+	logger      *logging.Logger
 }
 
 // NewExecutor creates a skill executor
-func NewExecutor(privacyMode bool) *Executor {
+func NewExecutor(privacyMode bool, logger *logging.Logger) *Executor {
 	return &Executor{
 		privacyMode: privacyMode,
+		logger:      logger,
 	}
 }
 
@@ -38,6 +41,12 @@ type Output struct {
 
 // Execute runs a skill with the given input
 func (e *Executor) Execute(ctx context.Context, skill *Skill, input Input) (*Output, error) {
+	logger := e.logger.WithFields(map[string]interface{}{
+		"skill_name": skill.Name,
+		"skill_path": skill.Path,
+	})
+	logger.Debug("starting skill execution")
+
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(ctx, skill.Timeout)
 	defer cancel()
@@ -52,6 +61,7 @@ func (e *Executor) Execute(ctx context.Context, skill *Skill, input Input) (*Out
 	// Prepare input JSON
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
+		logger.WithContext("error", err.Error()).Error("failed to marshal input")
 		return nil, fmt.Errorf("failed to marshal input: %w", err)
 	}
 
@@ -67,19 +77,33 @@ func (e *Executor) Execute(ctx context.Context, skill *Skill, input Input) (*Out
 
 	// Check for timeout
 	if ctx.Err() == context.DeadlineExceeded {
+		logger.WithContext("timeout", skill.Timeout).Error("skill execution timed out")
 		return nil, fmt.Errorf("skill execution timed out after %v", skill.Timeout)
 	}
 
 	// Parse output
 	var output Output
 	if err := json.Unmarshal(stdout.Bytes(), &output); err != nil {
+		logger.WithFields(map[string]interface{}{
+			"error":  err.Error(),
+			"stderr": stderr.String(),
+		}).Error("failed to parse skill output")
 		return nil, fmt.Errorf("failed to parse skill output: %w (stderr: %s)", err, stderr.String())
 	}
 
 	if output.Error != "" {
+		logger.WithContext("skill_error", output.Error).Error("skill returned error")
 		return &output, fmt.Errorf("skill error: %s", output.Error)
 	}
 
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		}
+	}
+
+	logger.WithContext("exit_code", exitCode).Debug("skill execution completed")
 	return &output, nil
 }
 

@@ -16,6 +16,16 @@ import (
 
 // handleDashboard renders the dashboard page with system stats
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing request")
+
 	log.Printf("=== handleDashboard called for path: %s ===", r.URL.Path)
 
 	// Prevent caching
@@ -29,6 +39,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	library, err := s.store.Library(ctx)
 	if err != nil {
 		log.Printf("Failed to get library: %v", err)
+		logger.Error("request failed", "operation", "get_library", "error", err.Error())
 		http.Error(w, "Failed to load dashboard", http.StatusInternalServerError)
 		return
 	}
@@ -72,13 +83,28 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// Render template
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		log.Printf("Failed to render dashboard template: %v", err)
+		logger.Error("request failed", "operation", "render_template", "error", err.Error())
 		http.Error(w, "Failed to render dashboard", http.StatusInternalServerError)
+		return
 	}
 	log.Printf("Dashboard template rendered successfully")
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency)
 }
 
 // handleChat renders the chat page
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing request")
+
 	log.Printf("=== handleChat called for path: %s ===", r.URL.Path)
 
 	// Prevent caching
@@ -98,14 +124,30 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	// Render chat template
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		log.Printf("Failed to render chat template: %v", err)
+		logger.Error("request failed", "operation", "render_template", "error", err.Error())
 		http.Error(w, "Failed to render chat", http.StatusInternalServerError)
+		return
 	}
 	log.Printf("Chat template rendered successfully")
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency)
 }
 
 // handleAsk processes chat queries with RAG
 func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing request")
+
 	if r.Method != http.MethodPost {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -118,6 +160,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		SessionID string `json:"session_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("request failed", "operation", "parse_request", "error", err.Error())
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
@@ -130,6 +173,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	// Save user message
 	if err := s.store.SaveMessage(ctx, req.SessionID, "user", req.Query); err != nil {
 		log.Printf("Failed to save user message: %v", err)
+		logger.Warn("failed to save user message", "error", err.Error())
 	}
 
 	// Audit log
@@ -139,6 +183,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	queryVec, err := s.provider.Embed(ctx, req.Query)
 	if err != nil {
 		log.Printf("Embedding failed: %v", err)
+		logger.Error("request failed", "operation", "embed_query", "error", err.Error())
 		http.Error(w, "Embedding failed", http.StatusInternalServerError)
 		return
 	}
@@ -147,6 +192,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	chunks, err := s.searcher.Search(ctx, queryVec, 5)
 	if err != nil {
 		log.Printf("Search failed: %v", err)
+		logger.Error("request failed", "operation", "search_chunks", "error", err.Error())
 		http.Error(w, "Search failed", http.StatusInternalServerError)
 		return
 	}
@@ -169,13 +215,18 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	response, err := s.provider.Stream(ctx, messages, w)
 	if err != nil {
 		log.Printf("Stream failed: %v", err)
+		logger.Error("request failed", "operation", "stream_response", "error", err.Error())
 		return
 	}
 
 	// Save assistant message
 	if err := s.store.SaveMessage(ctx, req.SessionID, "assistant", response); err != nil {
 		log.Printf("Failed to save assistant message: %v", err)
+		logger.Warn("failed to save assistant message", "error", err.Error())
 	}
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency, "session_id", req.SessionID)
 }
 
 // handleSessions returns a list of all chat sessions
@@ -241,6 +292,16 @@ func (s *Server) handleSessionHistory(w http.ResponseWriter, r *http.Request) {
 
 // handleLibrary renders the library page with document cards
 func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing request")
+
 	log.Printf("=== handleLibrary called for path: %s ===", r.URL.Path)
 
 	// Prevent caching
@@ -257,6 +318,7 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 	library, err := s.store.Library(ctx)
 	if err != nil {
 		log.Printf("Failed to get library: %v", err)
+		logger.Error("request failed", "operation", "get_library", "error", err.Error())
 		http.Error(w, "Failed to load library", http.StatusInternalServerError)
 		return
 	}
@@ -304,6 +366,9 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 				<button class="delete-btn" onclick="deleteDocument('%s')">Delete</button>
 			</div>`, entry.Source, entry.Source, preview, entry.ChunkCount, tagsHTML, entry.Source)
 		}
+
+		latency := time.Since(start).Milliseconds()
+		logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency, "htmx_request", true)
 		return
 	}
 
@@ -318,13 +383,29 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		log.Printf("Failed to render library template: %v", err)
+		logger.Error("request failed", "operation", "render_template", "error", err.Error())
 		http.Error(w, "Failed to render library", http.StatusInternalServerError)
+		return
 	}
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency)
 }
 
 // handleIngestText processes plain text ingestion
 func (s *Server) handleIngestText(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing request")
+
 	if r.Method != http.MethodPost {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -338,6 +419,7 @@ func (s *Server) handleIngestText(w http.ResponseWriter, r *http.Request) {
 		Tags   []string `json:"tags"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("request failed", "operation", "parse_request", "error", err.Error())
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
@@ -345,6 +427,7 @@ func (s *Server) handleIngestText(w http.ResponseWriter, r *http.Request) {
 	// Ingest text
 	if err := s.ingester.IngestText(ctx, req.Source, req.Text, req.Tags); err != nil {
 		log.Printf("Text ingestion failed: %v", err)
+		logger.Error("request failed", "operation", "ingest_text", "source", req.Source, "error", err.Error())
 		http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -357,11 +440,25 @@ func (s *Server) handleIngestText(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency, "source", req.Source)
 }
 
 // handleIngestURL processes URL ingestion
 func (s *Server) handleIngestURL(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing request")
+
 	if r.Method != http.MethodPost {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -374,6 +471,7 @@ func (s *Server) handleIngestURL(w http.ResponseWriter, r *http.Request) {
 		Tags []string `json:"tags"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("request failed", "operation", "parse_request", "error", err.Error())
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
@@ -381,6 +479,7 @@ func (s *Server) handleIngestURL(w http.ResponseWriter, r *http.Request) {
 	// Ingest URL
 	if err := s.ingester.IngestURL(ctx, req.URL, req.Tags); err != nil {
 		log.Printf("URL ingestion failed: %v", err)
+		logger.Error("request failed", "operation", "ingest_url", "url", req.URL, "error", err.Error())
 		http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -393,11 +492,25 @@ func (s *Server) handleIngestURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency, "url", req.URL)
 }
 
 // handleIngestFile processes file upload ingestion
 func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing request")
+
 	if r.Method != http.MethodPost {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -406,12 +519,14 @@ func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
 
 	// Parse multipart form
 	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max
+		logger.Error("request failed", "operation", "parse_form", "error", err.Error())
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
+		logger.Error("request failed", "operation", "get_file", "error", err.Error())
 		http.Error(w, "Failed to get file", http.StatusBadRequest)
 		return
 	}
@@ -430,6 +545,7 @@ func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
 	// Ingest file
 	if err := s.ingestFile(ctx, file, header, tags); err != nil {
 		log.Printf("File ingestion failed: %v", err)
+		logger.Error("request failed", "operation", "ingest_file", "filename", header.Filename, "error", err.Error())
 		http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -442,6 +558,9 @@ func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency, "filename", header.Filename)
 }
 
 // ingestFile is a helper that processes file ingestion
@@ -462,7 +581,18 @@ func (s *Server) ingestFile(ctx context.Context, file multipart.File, header *mu
 
 // handleDelete removes a document and all its chunks
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing request")
+
 	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -474,6 +604,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		Source string `json:"source"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("request failed", "operation", "parse_request", "error", err.Error())
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
@@ -481,6 +612,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	// Delete document
 	if err := s.store.DeleteSource(ctx, req.Source); err != nil {
 		log.Printf("Delete failed: %v", err)
+		logger.Error("request failed", "operation", "delete_source", "source", req.Source, "error", err.Error())
 		http.Error(w, "Delete failed", http.StatusInternalServerError)
 		return
 	}
@@ -493,6 +625,9 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency, "source", req.Source)
 }
 
 // PromptBuilder is a simple prompt builder for RAG
@@ -519,6 +654,13 @@ func (pb *PromptBuilder) BuildPrompt(query string, chunks []Chunk) string {
 // generateSessionID creates a random session ID
 func generateSessionID() string {
 	bytes := make([]byte, 16)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
+}
+
+// generateRequestID creates a random request ID for logging
+func generateRequestID() string {
+	bytes := make([]byte, 8)
 	rand.Read(bytes)
 	return hex.EncodeToString(bytes)
 }
@@ -552,6 +694,16 @@ func formatRelativeTime(t time.Time) string {
 
 // handleSettings renders the settings page
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing request")
+
 	log.Printf("=== handleSettings called for path: %s ===", r.URL.Path)
 
 	// Prevent caching of settings page
@@ -605,10 +757,14 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
 		log.Printf("Template execution error: %v", err)
+		logger.Error("request failed", "operation", "render_template", "error", err.Error())
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
 		return
 	}
 	log.Printf("=== Settings Handler Complete ===")
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency)
 }
 
 // handleConfig saves configuration changes

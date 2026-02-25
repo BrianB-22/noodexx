@@ -16,9 +16,10 @@
   },
   "folders": [],
   "logging": {
-    "level": "info",
-    "file": "",
-    "max_size_mb": 100,
+    "level": "debug",  // Valid values: "debug", "info", "warn", "error"
+    "debug_enabled": true,  // Enable file logging
+    "file": "debug.log",
+    "max_size_mb": 10,
     "max_backups": 3
   },
   "guardrails": {

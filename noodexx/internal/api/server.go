@@ -21,6 +21,17 @@ type Server struct {
 	config         *ServerConfig
 	skillsLoader   SkillsLoader
 	skillsExecutor SkillsExecutor
+	logger         Logger
+}
+
+// Logger interface for structured logging
+type Logger interface {
+	Debug(format string, args ...interface{})
+	Info(format string, args ...interface{})
+	Warn(format string, args ...interface{})
+	Error(format string, args ...interface{})
+	WithContext(key string, value interface{}) Logger
+	WithFields(fields map[string]interface{}) Logger
 }
 
 // Store interface for API operations
@@ -159,12 +170,12 @@ type ServerConfig struct {
 }
 
 // NewServer creates a server with dependencies and loads templates
-func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor) (*Server, error) {
-	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, skillsLoader, skillsExecutor, "web/templates/*.html")
+func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger) (*Server, error) {
+	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, skillsLoader, skillsExecutor, logger, "web/templates/*.html")
 }
 
 // NewServerWithTemplatePath creates a server with a custom template path (useful for testing)
-func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, templatePath string) (*Server, error) {
+func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, templatePath string) (*Server, error) {
 	// Load templates from the specified path
 	tmpl, err := template.ParseGlob(templatePath)
 	if err != nil {
@@ -181,6 +192,7 @@ func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Inges
 		config:         config,
 		skillsLoader:   skillsLoader,
 		skillsExecutor: skillsExecutor,
+		logger:         logger,
 	}
 
 	// Start WebSocket hub

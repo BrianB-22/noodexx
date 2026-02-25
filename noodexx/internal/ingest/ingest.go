@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"noodexx/internal/logging"
 	"path/filepath"
 	"strings"
 
@@ -44,10 +45,11 @@ type Ingester struct {
 	guardrails  *Guardrails
 	privacyMode bool
 	summarize   bool
+	logger      *logging.Logger
 }
 
 // NewIngester creates a new Ingester with all dependencies
-func NewIngester(provider LLMProvider, store Store, chunker Chunker, privacyMode, summarize bool) *Ingester {
+func NewIngester(provider LLMProvider, store Store, chunker Chunker, privacyMode, summarize bool, logger *logging.Logger) *Ingester {
 	return &Ingester{
 		provider:    provider,
 		store:       store,
@@ -56,18 +58,28 @@ func NewIngester(provider LLMProvider, store Store, chunker Chunker, privacyMode
 		guardrails:  NewGuardrails(),
 		privacyMode: privacyMode,
 		summarize:   summarize,
+		logger:      logger,
 	}
 }
 
 // IngestText processes plain text with chunking, embedding, and storage
 func (ing *Ingester) IngestText(ctx context.Context, source, text string, tags []string) error {
+	logger := ing.logger.WithFields(map[string]interface{}{
+		"source":     source,
+		"text_size":  len(text),
+		"tags_count": len(tags),
+	})
+	logger.Debug("starting text ingestion")
+
 	// Check guardrails
 	if err := ing.guardrails.Check(source, text); err != nil {
+		logger.WithContext("error", err.Error()).Error("guardrails check failed")
 		return fmt.Errorf("guardrails check failed: %w", err)
 	}
 
 	// Detect PII
 	if piiTypes := ing.piiDetector.Detect(text); len(piiTypes) > 0 {
+		logger.WithContext("pii_types", piiTypes).Error("PII detected")
 		return fmt.Errorf("PII detected: %v - ingestion blocked", piiTypes)
 	}
 
@@ -78,43 +90,64 @@ func (ing *Ingester) IngestText(ctx context.Context, source, text string, tags [
 		summary, err = ing.generateSummary(ctx, text)
 		if err != nil {
 			// Log error but don't fail ingestion - fall back to no summary
+			logger.WithContext("error", err.Error()).Warn("summary generation failed")
 			summary = ""
 		}
 	}
 
 	// Chunk text
 	chunks := ing.chunker.ChunkText(text)
+	logger.WithContext("total_chunks", len(chunks)).Debug("text chunked")
 
 	// Embed and save each chunk
-	for _, chunk := range chunks {
+	for i, chunk := range chunks {
 		embedding, err := ing.provider.Embed(ctx, chunk)
 		if err != nil {
+			logger.WithFields(map[string]interface{}{
+				"chunk_index": i,
+				"error":       err.Error(),
+			}).Error("embedding failed")
 			return fmt.Errorf("embedding failed: %w", err)
 		}
 
 		if err := ing.store.SaveChunk(ctx, source, chunk, embedding, tags, summary); err != nil {
+			logger.WithFields(map[string]interface{}{
+				"chunk_index": i,
+				"error":       err.Error(),
+			}).Error("save chunk failed")
 			return fmt.Errorf("save chunk failed: %w", err)
 		}
+		logger.WithFields(map[string]interface{}{
+			"chunk_index":  i,
+			"total_chunks": len(chunks),
+		}).Debug("chunk processed")
 	}
 
+	logger.WithContext("total_chunks", len(chunks)).Debug("text ingestion completed")
 	return nil
 }
 
 // IngestURL fetches and processes a web page
 func (ing *Ingester) IngestURL(ctx context.Context, urlStr string, tags []string) error {
+	logger := ing.logger.WithContext("url", urlStr)
+	logger.Debug("starting URL ingestion")
+
 	if ing.privacyMode {
+		logger.Error("URL ingestion disabled in privacy mode")
 		return fmt.Errorf("URL ingestion is disabled in privacy mode")
 	}
 
 	// Parse URL
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
+		logger.WithContext("error", err.Error()).Error("invalid URL")
 		return fmt.Errorf("invalid URL: %w", err)
 	}
 
 	// Fetch URL content
 	resp, err := http.Get(urlStr)
 	if err != nil {
+		logger.WithContext("error", err.Error()).Error("failed to fetch URL")
 		return fmt.Errorf("failed to fetch URL: %w", err)
 	}
 	defer resp.Body.Close()
@@ -122,22 +155,32 @@ func (ing *Ingester) IngestURL(ctx context.Context, urlStr string, tags []string
 	// Parse HTML using go-readability
 	article, err := readability.FromReader(resp.Body, parsedURL)
 	if err != nil {
+		logger.WithContext("error", err.Error()).Error("failed to parse HTML")
 		return fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
+	logger.WithContext("text_size", len(article.TextContent)).Debug("URL content fetched and parsed")
 	return ing.IngestText(ctx, urlStr, article.TextContent, tags)
 }
 
 // IngestFile processes an uploaded file based on MIME type
 func (ing *Ingester) IngestFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, tags []string) error {
+	logger := ing.logger.WithFields(map[string]interface{}{
+		"file_path": header.Filename,
+		"file_size": header.Size,
+	})
+	logger.Debug("starting file ingestion")
+
 	// Check file size
 	if header.Size > ing.guardrails.MaxFileSize {
+		logger.WithContext("limit", ing.guardrails.MaxFileSize).Error("file size exceeds limit")
 		return fmt.Errorf("file size %d exceeds limit %d", header.Size, ing.guardrails.MaxFileSize)
 	}
 
 	// Check extension
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !ing.guardrails.IsAllowedExtension(ext) {
+		logger.WithContext("extension", ext).Error("file extension not allowed")
 		return fmt.Errorf("file extension %s is not allowed", ext)
 	}
 
@@ -153,13 +196,16 @@ func (ing *Ingester) IngestFile(ctx context.Context, file multipart.File, header
 	case ".html":
 		text, err = ing.parseHTML(file)
 	default:
+		logger.WithContext("extension", ext).Error("unsupported file type")
 		return fmt.Errorf("unsupported file type: %s", ext)
 	}
 
 	if err != nil {
+		logger.WithContext("error", err.Error()).Error("failed to parse file")
 		return fmt.Errorf("failed to parse file: %w", err)
 	}
 
+	logger.WithContext("text_size", len(text)).Debug("file parsed successfully")
 	return ing.IngestText(ctx, header.Filename, text, tags)
 }
 

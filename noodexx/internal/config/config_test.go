@@ -31,6 +31,23 @@ func TestLoad_DefaultConfig(t *testing.T) {
 		t.Errorf("Expected bind address '127.0.0.1', got '%s'", cfg.Server.BindAddress)
 	}
 
+	// Verify logging defaults
+	if cfg.Logging.Level != "info" {
+		t.Errorf("Expected log level 'info', got '%s'", cfg.Logging.Level)
+	}
+	if cfg.Logging.DebugEnabled != true {
+		t.Errorf("Expected debug_enabled true by default, got %v", cfg.Logging.DebugEnabled)
+	}
+	if cfg.Logging.File != "debug.log" {
+		t.Errorf("Expected log file 'debug.log', got '%s'", cfg.Logging.File)
+	}
+	if cfg.Logging.MaxSizeMB != 10 {
+		t.Errorf("Expected max_size_mb 10, got %d", cfg.Logging.MaxSizeMB)
+	}
+	if cfg.Logging.MaxBackups != 3 {
+		t.Errorf("Expected max_backups 3, got %d", cfg.Logging.MaxBackups)
+	}
+
 	// Verify config file was created
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		t.Error("Config file was not created")
@@ -106,12 +123,16 @@ func TestEnvOverrides(t *testing.T) {
 	os.Setenv("NOODEXX_OPENAI_KEY", "test-key")
 	os.Setenv("NOODEXX_PRIVACY_MODE", "false")
 	os.Setenv("NOODEXX_LOG_LEVEL", "debug")
+	os.Setenv("NOODEXX_DEBUG_ENABLED", "false")
+	os.Setenv("NOODEXX_LOG_FILE", "custom.log")
 	os.Setenv("NOODEXX_SERVER_PORT", "9000")
 	defer func() {
 		os.Unsetenv("NOODEXX_PROVIDER")
 		os.Unsetenv("NOODEXX_OPENAI_KEY")
 		os.Unsetenv("NOODEXX_PRIVACY_MODE")
 		os.Unsetenv("NOODEXX_LOG_LEVEL")
+		os.Unsetenv("NOODEXX_DEBUG_ENABLED")
+		os.Unsetenv("NOODEXX_LOG_FILE")
 		os.Unsetenv("NOODEXX_SERVER_PORT")
 	}()
 
@@ -130,6 +151,12 @@ func TestEnvOverrides(t *testing.T) {
 	}
 	if cfg.Logging.Level != "debug" {
 		t.Errorf("Expected log level 'debug', got '%s'", cfg.Logging.Level)
+	}
+	if cfg.Logging.DebugEnabled != false {
+		t.Errorf("Expected debug_enabled false, got %v", cfg.Logging.DebugEnabled)
+	}
+	if cfg.Logging.File != "custom.log" {
+		t.Errorf("Expected log file 'custom.log', got '%s'", cfg.Logging.File)
 	}
 	if cfg.Server.Port != 9000 {
 		t.Errorf("Expected port 9000, got %d", cfg.Server.Port)
@@ -306,5 +333,110 @@ func TestSave(t *testing.T) {
 	}
 	if len(loadedCfg.Folders) != 1 || loadedCfg.Folders[0] != "/test/path" {
 		t.Errorf("Expected folders ['/test/path'], got %v", loadedCfg.Folders)
+	}
+}
+
+func TestBackwardCompatibility_MissingDebugEnabled(t *testing.T) {
+	// Create a temporary directory for testing
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	// Create a config file without debug_enabled field (simulating old config)
+	oldConfigJSON := `{
+		"provider": {
+			"type": "ollama",
+			"ollama_endpoint": "http://localhost:11434",
+			"ollama_embed_model": "nomic-embed-text",
+			"ollama_chat_model": "llama3.2"
+		},
+		"privacy": {
+			"enabled": true
+		},
+		"folders": [],
+		"logging": {
+			"level": "info"
+		},
+		"guardrails": {
+			"max_file_size_mb": 10,
+			"allowed_extensions": [".txt", ".md"],
+			"max_concurrent": 3,
+			"pii_detection": "normal",
+			"auto_summarize": true
+		},
+		"server": {
+			"port": 8080,
+			"bind_address": "127.0.0.1"
+		}
+	}`
+
+	if err := os.WriteFile(configPath, []byte(oldConfigJSON), 0600); err != nil {
+		t.Fatalf("Failed to write old config: %v", err)
+	}
+
+	// Load config
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+
+	// Verify that debug_enabled defaults to true for backward compatibility
+	if cfg.Logging.DebugEnabled != true {
+		t.Errorf("Expected debug_enabled to default to true for backward compatibility, got %v", cfg.Logging.DebugEnabled)
+	}
+
+	// Verify other defaults are applied
+	if cfg.Logging.File != "debug.log" {
+		t.Errorf("Expected file to default to 'debug.log', got '%s'", cfg.Logging.File)
+	}
+	if cfg.Logging.MaxSizeMB != 10 {
+		t.Errorf("Expected max_size_mb to default to 10, got %d", cfg.Logging.MaxSizeMB)
+	}
+	if cfg.Logging.MaxBackups != 3 {
+		t.Errorf("Expected max_backups to default to 3, got %d", cfg.Logging.MaxBackups)
+	}
+}
+
+func TestValidate_LogLevel(t *testing.T) {
+	tests := []struct {
+		name        string
+		level       string
+		expectError bool
+	}{
+		{"Valid debug level", "debug", false},
+		{"Valid info level", "info", false},
+		{"Valid warn level", "warn", false},
+		{"Valid error level", "error", false},
+		{"Invalid level", "invalid", true},
+		{"Empty level", "", true},
+		{"Uppercase level", "INFO", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				Provider: ProviderConfig{
+					Type:           "ollama",
+					OllamaEndpoint: "http://localhost:11434",
+				},
+				Privacy: PrivacyConfig{Enabled: true},
+				Logging: LoggingConfig{
+					Level:        tt.level,
+					DebugEnabled: true,
+					File:         "debug.log",
+					MaxSizeMB:    10,
+					MaxBackups:   3,
+				},
+				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
+				Server:     ServerConfig{Port: 8080},
+			}
+
+			err := cfg.Validate()
+			if tt.expectError && err == nil {
+				t.Error("Expected validation error, got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+		})
 	}
 }

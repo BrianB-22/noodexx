@@ -39,7 +39,7 @@ EOF
 	}
 
 	// Create executor
-	executor := NewExecutor(false)
+	executor := NewExecutor(false, nil)
 
 	// Execute skill
 	input := Input{
@@ -97,7 +97,7 @@ echo '{"result": "Should not reach here"}'
 	}
 
 	// Create executor
-	executor := NewExecutor(false)
+	executor := NewExecutor(false, nil)
 
 	// Execute skill
 	input := Input{
@@ -153,7 +153,7 @@ func TestExecutor_buildEnv(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewExecutor(tt.privacyMode)
+			executor := NewExecutor(tt.privacyMode, nil)
 			env := executor.buildEnv(skill)
 
 			// Check that expected env vars are present
