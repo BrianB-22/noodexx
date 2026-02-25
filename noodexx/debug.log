@@ -57,3 +57,199 @@
 [2026-02-24 18:52:03] DEBUG [watcher] watcher.go:68 watcher.(*Watcher).Start starting file watcher
 [2026-02-24 18:52:03] DEBUG [watcher] watcher.go:105 watcher.(*Watcher).Start file watcher started folder_count=0
 [2026-02-24 18:52:03] INFO [main] main.go:179 main.main API server initialized
+[2026-02-24 18:52:39] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=8ec869e9519fb89e method=GET path=/chat
+[2026-02-24 18:52:39] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=1) path=/chat request_id=8ec869e9519fb89e method=GET
+[2026-02-24 18:52:39] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:52:39] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:52:40] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request request_id=611f96136528873e method=GET path=/
+[2026-02-24 18:52:40] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=611f96136528873e method=GET path=/
+[2026-02-24 18:52:40] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=1) request_id=611f96136528873e method=GET path=/
+[2026-02-24 18:52:40] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:52:40] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:52:41] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=042ebbae08857a78 method=GET path=/chat
+[2026-02-24 18:52:41] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) path=/chat request_id=042ebbae08857a78 method=GET
+[2026-02-24 18:52:41] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:52:41] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:52:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request method=GET request_id=fd5209984d249103 path=/
+[2026-02-24 18:52:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) method=GET request_id=fd5209984d249103 path=/
+[2026-02-24 18:52:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=fd5209984d249103 path=/ method=GET
+[2026-02-24 18:52:43] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:52:43] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:52:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=3dbdc7d0dc9ccc99 method=GET path=/chat
+[2026-02-24 18:52:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=3dbdc7d0dc9ccc99 method=GET path=/chat
+[2026-02-24 18:52:43] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:52:43] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:52:44] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request request_id=47db9853d70bd27e method=GET path=/
+[2026-02-24 18:52:44] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=47db9853d70bd27e method=GET path=/
+[2026-02-24 18:52:44] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=47db9853d70bd27e method=GET path=/
+[2026-02-24 18:52:44] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:52:44] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:52:45] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request method=GET path=/chat request_id=27a2fdfcf803fd09
+[2026-02-24 18:52:45] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=27a2fdfcf803fd09 method=GET path=/chat
+[2026-02-24 18:52:45] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:52:45] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:55:07] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request request_id=84fe1749a67b1bac method=GET path=/
+[2026-02-24 18:55:07] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=84fe1749a67b1bac method=GET path=/
+[2026-02-24 18:55:07] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=1) method=GET path=/ request_id=84fe1749a67b1bac
+[2026-02-24 18:55:07] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:55:07] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:55:08] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=5dbd33adfa002cea method=GET path=/chat
+[2026-02-24 18:55:08] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=5dbd33adfa002cea method=GET path=/chat
+[2026-02-24 18:55:08] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:55:08] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:57:00] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=60c36996d9ad6179 method=POST path=/api/ask
+[2026-02-24 18:57:00] ERROR [main] adapters.go:479 main.(*apiLoggerAdapter).Error request failed%!(EXTRA string=operation, string=parse_request, string=error, string=invalid character 'q' looking for beginning of value) request_id=60c36996d9ad6179 method=POST path=/api/ask
+[2026-02-24 18:57:09] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request path=/api/ask request_id=46c170ac89b6ac18 method=POST
+[2026-02-24 18:57:09] ERROR [main] adapters.go:479 main.(*apiLoggerAdapter).Error request failed%!(EXTRA string=operation, string=parse_request, string=error, string=invalid character 'q' looking for beginning of value) request_id=46c170ac89b6ac18 method=POST path=/api/ask
+[2026-02-24 18:57:21] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=3bda6d436e9a2fbf method=POST path=/api/ask
+[2026-02-24 18:57:21] ERROR [main] adapters.go:479 main.(*apiLoggerAdapter).Error request failed%!(EXTRA string=operation, string=parse_request, string=error, string=invalid character 'q' looking for beginning of value) request_id=3bda6d436e9a2fbf method=POST path=/api/ask
+[2026-02-24 18:59:19] INFO [main] main.go:74 main.main Starting Noodexx v1.0.0...
+[2026-02-24 18:59:19] INFO [main] main.go:83 main.main Database initialized
+[2026-02-24 18:59:19] INFO [main] main.go:103 main.main LLM provider: ollama (privacy mode: true)
+[2026-02-24 18:59:19] INFO [main] main.go:109 main.main RAG components initialized
+[2026-02-24 18:59:19] INFO [main] main.go:114 main.main Ingester initialized
+[2026-02-24 18:59:19] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:59:19] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:59:19] INFO [main] main.go:123 main.main Loaded 0 skills
+[2026-02-24 18:59:19] DEBUG [watcher] watcher.go:68 watcher.(*Watcher).Start starting file watcher
+[2026-02-24 18:59:19] INFO [main] main.go:179 main.main API server initialized
+[2026-02-24 18:59:19] DEBUG [watcher] watcher.go:105 watcher.(*Watcher).Start file watcher started folder_count=0
+[2026-02-24 18:59:22] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=a9c639a0d1d3334b method=GET path=/chat
+[2026-02-24 18:59:22] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=1) request_id=a9c639a0d1d3334b method=GET path=/chat
+[2026-02-24 18:59:22] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:59:22] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:59:24] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request path=/ request_id=a6876e30a97b941a method=GET
+[2026-02-24 18:59:24] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=a6876e30a97b941a method=GET path=/
+[2026-02-24 18:59:24] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=a6876e30a97b941a method=GET path=/
+[2026-02-24 18:59:24] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:59:24] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:59:25] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request path=/chat request_id=65f1df51cb124462 method=GET
+[2026-02-24 18:59:25] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) path=/chat request_id=65f1df51cb124462 method=GET
+[2026-02-24 18:59:25] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:59:25] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:59:27] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request request_id=88b1130e67f35a31 method=GET path=/
+[2026-02-24 18:59:27] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) path=/ request_id=88b1130e67f35a31 method=GET
+[2026-02-24 18:59:27] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=1) method=GET path=/ request_id=88b1130e67f35a31
+[2026-02-24 18:59:27] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:59:27] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:59:27] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=6ef6ec69d1ff161b method=GET path=/chat
+[2026-02-24 18:59:27] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=6ef6ec69d1ff161b method=GET path=/chat
+[2026-02-24 18:59:27] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:59:27] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:59:33] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request path=/api/ask request_id=632abc8827d0ff2b method=POST
+[2026-02-24 18:59:33] DEBUG [llm] ollama.go:42 llm.(*OllamaProvider).Embed starting embedding request provider=ollama model=nomic-embed-text:latest operation=embed
+[2026-02-24 18:59:33] DEBUG [llm] ollama.go:112 llm.(*OllamaProvider).Embed embedding request completed provider=ollama model=nomic-embed-text:latest operation=embed vector_size=768 latency_ms=428
+[2026-02-24 18:59:33] DEBUG [rag] search.go:41 rag.(*Searcher).Search starting RAG search vector_size=768 limit=5
+[2026-02-24 18:59:33] DEBUG [rag] search.go:57 rag.(*Searcher).Search search completed vector_size=768 limit=5 min_score=0 result_count=0
+[2026-02-24 18:59:33] DEBUG [llm] ollama.go:125 llm.(*OllamaProvider).Stream starting chat stream request operation=stream message_count=2 provider=ollama model=noodexx-chat:latest
+[2026-02-24 18:59:39] DEBUG [llm] ollama.go:223 llm.(*OllamaProvider).Stream chat stream completed provider=ollama model=noodexx-chat:latest response_length=186 latency_ms=5634 tokens=39 operation=stream message_count=2
+[2026-02-24 18:59:39] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=6071, string=session_id, string=session_1771977567916_lv8deyh4d) request_id=632abc8827d0ff2b method=POST path=/api/ask
+[2026-02-24 19:00:02] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request request_id=84c595d2009c911c method=GET path=/
+[2026-02-24 19:00:02] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) path=/ request_id=84c595d2009c911c method=GET
+[2026-02-24 19:00:02] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=1) request_id=84c595d2009c911c method=GET path=/
+[2026-02-24 19:00:02] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:00:02] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:00:05] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request method=GET path=/library request_id=063d135dca953988
+[2026-02-24 19:00:05] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=063d135dca953988 method=GET path=/library
+[2026-02-24 19:00:05] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:00:05] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:00:21] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=fdb9b01784819c13 method=GET path=/chat
+[2026-02-24 19:00:21] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) path=/chat request_id=fdb9b01784819c13 method=GET
+[2026-02-24 19:00:21] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:00:21] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:00:22] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=8dc97bbf02ce2a9b method=GET path=/settings
+[2026-02-24 19:00:22] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) path=/settings request_id=8dc97bbf02ce2a9b method=GET
+[2026-02-24 19:00:22] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:00:22] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:00:26] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request method=GET request_id=c18142f2de478f62 path=/
+[2026-02-24 19:00:26] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) method=GET request_id=c18142f2de478f62 path=/
+[2026-02-24 19:00:26] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) method=GET request_id=c18142f2de478f62 path=/
+[2026-02-24 19:00:26] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:00:26] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:00:39] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=ab80e16519166a2a method=GET path=/library
+[2026-02-24 19:00:39] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=ab80e16519166a2a method=GET path=/library
+[2026-02-24 19:00:39] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:00:39] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:00:40] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request request_id=6afb10c68ef85ae2 method=GET path=/
+[2026-02-24 19:00:40] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=6afb10c68ef85ae2 method=GET path=/
+[2026-02-24 19:00:40] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) method=GET path=/ request_id=6afb10c68ef85ae2
+[2026-02-24 19:00:40] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:00:40] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:00:41] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request method=GET path=/chat request_id=323257913dff4595
+[2026-02-24 19:00:41] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=323257913dff4595 method=GET path=/chat
+[2026-02-24 19:00:41] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:00:41] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:00:54] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=0a4eeae734b9f5e8 method=POST path=/api/ask
+[2026-02-24 19:00:54] DEBUG [llm] ollama.go:42 llm.(*OllamaProvider).Embed starting embedding request operation=embed provider=ollama model=nomic-embed-text:latest
+[2026-02-24 19:00:54] DEBUG [llm] ollama.go:112 llm.(*OllamaProvider).Embed embedding request completed model=nomic-embed-text:latest operation=embed provider=ollama latency_ms=146 vector_size=768
+[2026-02-24 19:00:54] DEBUG [rag] search.go:41 rag.(*Searcher).Search starting RAG search vector_size=768 limit=5
+[2026-02-24 19:00:54] DEBUG [rag] search.go:57 rag.(*Searcher).Search search completed vector_size=768 limit=5 result_count=0 min_score=0
+[2026-02-24 19:00:54] DEBUG [llm] ollama.go:125 llm.(*OllamaProvider).Stream starting chat stream request provider=ollama model=noodexx-chat:latest operation=stream message_count=2
+[2026-02-24 19:00:55] DEBUG [llm] ollama.go:223 llm.(*OllamaProvider).Stream chat stream completed message_count=2 provider=ollama model=noodexx-chat:latest operation=stream latency_ms=635 tokens=10 response_length=43
+[2026-02-24 19:00:55] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=788, string=session_id, string=session_1771977641960_twjgwdrag) path=/api/ask request_id=0a4eeae734b9f5e8 method=POST
+[2026-02-24 19:01:03] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=305c3c09437b003d method=POST path=/api/ask
+[2026-02-24 19:01:03] DEBUG [llm] ollama.go:42 llm.(*OllamaProvider).Embed starting embedding request provider=ollama model=nomic-embed-text:latest operation=embed
+[2026-02-24 19:01:03] DEBUG [llm] ollama.go:112 llm.(*OllamaProvider).Embed embedding request completed provider=ollama model=nomic-embed-text:latest operation=embed latency_ms=62 vector_size=768
+[2026-02-24 19:01:03] DEBUG [rag] search.go:41 rag.(*Searcher).Search starting RAG search vector_size=768 limit=5
+[2026-02-24 19:01:03] DEBUG [rag] search.go:57 rag.(*Searcher).Search search completed vector_size=768 limit=5 result_count=0 min_score=0
+[2026-02-24 19:01:03] DEBUG [llm] ollama.go:125 llm.(*OllamaProvider).Stream starting chat stream request message_count=2 provider=ollama model=noodexx-chat:latest operation=stream
+[2026-02-24 19:01:04] DEBUG [llm] ollama.go:223 llm.(*OllamaProvider).Stream chat stream completed provider=ollama latency_ms=1584 tokens=43 response_length=185 model=noodexx-chat:latest operation=stream message_count=2
+[2026-02-24 19:01:04] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=1652, string=session_id, string=session_1771977641960_twjgwdrag) request_id=305c3c09437b003d method=POST path=/api/ask
+[2026-02-24 19:01:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request request_id=30a8b2d3cfb804a3 method=GET path=/
+[2026-02-24 19:01:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=30a8b2d3cfb804a3 method=GET path=/
+[2026-02-24 19:01:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=30a8b2d3cfb804a3 method=GET path=/
+[2026-02-24 19:01:43] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:01:43] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:01:44] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=25354273ccbaeae8 method=GET path=/chat
+[2026-02-24 19:01:44] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=25354273ccbaeae8 method=GET path=/chat
+[2026-02-24 19:01:44] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:01:44] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:01:44] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=2dc0334e4f512820 method=GET path=/library
+[2026-02-24 19:01:44] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=1) request_id=2dc0334e4f512820 method=GET path=/library
+[2026-02-24 19:01:44] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:01:44] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:01:45] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=ae7784d2b67f428a method=GET path=/settings
+[2026-02-24 19:01:45] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=ae7784d2b67f428a method=GET path=/settings
+[2026-02-24 19:01:45] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:01:45] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:01:45] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request method=GET path=/ request_id=10b9ac84e907025c
+[2026-02-24 19:01:45] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=10b9ac84e907025c method=GET path=/
+[2026-02-24 19:01:45] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=10b9ac84e907025c method=GET path=/
+[2026-02-24 19:01:45] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:01:45] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:01:49] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=c8b5a8386e5318cf method=GET path=/library
+[2026-02-24 19:01:49] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=1) request_id=c8b5a8386e5318cf method=GET path=/library
+[2026-02-24 19:01:49] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:01:49] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:01:51] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request path=/ request_id=50eb70670971b555 method=GET
+[2026-02-24 19:01:51] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=50eb70670971b555 method=GET path=/
+[2026-02-24 19:01:51] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) method=GET path=/ request_id=50eb70670971b555
+[2026-02-24 19:01:51] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:01:51] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:02:02] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=fc564d978ed6dac5 method=GET path=/chat
+[2026-02-24 19:02:02] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=fc564d978ed6dac5 method=GET path=/chat
+[2026-02-24 19:02:02] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:02:02] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:02:25] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request method=GET path=/ request_id=9d691c3dab1874cb
+[2026-02-24 19:02:25] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=9d691c3dab1874cb method=GET path=/
+[2026-02-24 19:02:25] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=9d691c3dab1874cb method=GET path=/
+[2026-02-24 19:02:25] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:02:25] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:02:30] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request request_id=d83ec4edcf5f8714 method=GET path=/
+[2026-02-24 19:02:30] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=d83ec4edcf5f8714 method=GET path=/
+[2026-02-24 19:02:30] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) method=GET path=/ request_id=d83ec4edcf5f8714
+[2026-02-24 19:02:30] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:02:30] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:02:31] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=44b4f088d92cd9e0 method=GET path=/chat
+[2026-02-24 19:02:31] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=44b4f088d92cd9e0 method=GET path=/chat
+[2026-02-24 19:02:31] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:02:31] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:02:31] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing dashboard request request_id=4a7c5b803248957b method=GET path=/
+[2026-02-24 19:02:31] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug rendering dashboard template%!(EXTRA string=document_count, int=0) request_id=4a7c5b803248957b method=GET path=/
+[2026-02-24 19:02:31] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=4a7c5b803248957b method=GET path=/
+[2026-02-24 19:02:31] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:02:31] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 19:02:39] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=3f72b347e16deac8 method=GET path=/chat
+[2026-02-24 19:02:39] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=3f72b347e16deac8 method=GET path=/chat
+[2026-02-24 19:02:39] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 19:02:39] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0

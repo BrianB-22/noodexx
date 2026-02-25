@@ -174,9 +174,9 @@ async function sendMessage(event) {
         const response = await fetch('/api/ask', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/json',
             },
-            body: new URLSearchParams({
+            body: JSON.stringify({
                 query: message,
                 session_id: currentSessionId
             })
@@ -578,9 +578,9 @@ function scrollToBottom() {
     min-height: 44px;
     max-height: 200px;
     padding: 0.75rem;
-    border: 1px solid var(--border);
+    border: 2px solid var(--border);
     border-radius: 8px;
-    background: var(--background);
+    background: var(--surface);
     color: var(--text);
     font-family: inherit;
     font-size: 0.875rem;
@@ -591,6 +591,7 @@ function scrollToBottom() {
 .chat-textarea:focus {
     outline: none;
     border-color: var(--primary);
+    border-width: 2px;
 }
 
 .chat-textarea:disabled {
