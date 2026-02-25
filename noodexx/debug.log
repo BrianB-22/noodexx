@@ -10,3 +10,27 @@
 [2026-02-24 18:39:57] DEBUG [watcher] watcher.go:105 watcher.(*Watcher).Start file watcher started folder_count=0
 [2026-02-24 18:39:57] INFO [main] main.go:179 main.main API server initialized
 [2026-02-24 18:39:57] INFO [main] main.go:197 main.main.func1 Server listening on http://127.0.0.1:8080
+[2026-02-24 18:41:21] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=e4b2017a0d223661 method=GET path=/
+[2026-02-24 18:41:21] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=4) request_id=e4b2017a0d223661 method=GET path=/
+[2026-02-24 18:41:21] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:41:21] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:41:28] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=1a18c680b6e9a295 method=GET path=/chat
+[2026-02-24 18:41:28] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) method=GET path=/chat request_id=1a18c680b6e9a295
+[2026-02-24 18:41:28] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:41:28] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:41:30] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=8a6d74d47689f86b method=GET path=/chat
+[2026-02-24 18:41:30] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=8a6d74d47689f86b method=GET path=/chat
+[2026-02-24 18:41:30] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:41:30] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:41:32] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=7f0c5c65266e592e method=GET path=/library
+[2026-02-24 18:41:32] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=7f0c5c65266e592e method=GET path=/library
+[2026-02-24 18:41:32] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:41:32] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:41:32] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=b04610acf6fc4b30 method=GET path=/settings
+[2026-02-24 18:41:32] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) method=GET path=/settings request_id=b04610acf6fc4b30
+[2026-02-24 18:41:32] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:41:32] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0
+[2026-02-24 18:41:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug processing request request_id=7ee17e0f6837cde8 method=GET path=/
+[2026-02-24 18:41:43] DEBUG [main] adapters.go:467 main.(*apiLoggerAdapter).Debug request completed%!(EXTRA string=status, int=200, string=latency_ms, int64=0) request_id=7ee17e0f6837cde8 method=GET path=/
+[2026-02-24 18:41:43] DEBUG [skills] loader.go:61 skills.(*Loader).LoadAll loading skills skills_dir=skills
+[2026-02-24 18:41:43] DEBUG [skills] loader.go:110 skills.(*Loader).LoadAll skills loaded count=0

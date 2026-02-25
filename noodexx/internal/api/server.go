@@ -246,14 +246,11 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	log.Printf("Registered: /chat -> handleChat")
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Root handler called for path: %s", r.URL.Path)
 		// Only handle exact "/" path for dashboard
 		if r.URL.Path != "/" {
-			log.Printf("Path is not '/', returning 404")
 			http.NotFound(w, r)
 			return
 		}
-		log.Printf("Calling handleDashboard")
 		s.handleDashboard(w, r)
 	})
 	log.Printf("Registered: / -> handleDashboard (with exact match)")

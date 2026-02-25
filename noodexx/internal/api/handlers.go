@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -24,9 +23,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		WithContext("method", r.Method).
 		WithContext("path", r.URL.Path)
 
-	logger.Debug("processing request")
-
-	log.Printf("=== handleDashboard called for path: %s ===", r.URL.Path)
+	logger.Debug("processing dashboard request")
 
 	// Prevent caching
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -38,8 +35,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// Get document count
 	library, err := s.store.Library(ctx)
 	if err != nil {
-		log.Printf("Failed to get library: %v", err)
-		logger.Error("request failed", "operation", "get_library", "error", err.Error())
+		logger.Error("failed to get library", "error", err.Error())
 		http.Error(w, "Failed to load dashboard", http.StatusInternalServerError)
 		return
 	}
@@ -78,16 +74,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"HasIngestions": !lastIngestion.IsZero(),
 	}
 
-	log.Printf("Dashboard data: Title=%s, Page=%s, DocumentCount=%d", data["Title"], data["Page"], docCount)
+	logger.Debug("rendering dashboard template", "document_count", docCount)
 
 	// Render template
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
-		log.Printf("Failed to render dashboard template: %v", err)
-		logger.Error("request failed", "operation", "render_template", "error", err.Error())
+		logger.Error("failed to render dashboard template", "error", err.Error())
 		http.Error(w, "Failed to render dashboard", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Dashboard template rendered successfully")
 
 	latency := time.Since(start).Milliseconds()
 	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency)
@@ -105,8 +99,6 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debug("processing request")
 
-	log.Printf("=== handleChat called for path: %s ===", r.URL.Path)
-
 	// Prevent caching
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
@@ -119,16 +111,12 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		"PrivacyMode": s.config.PrivacyMode,
 	}
 
-	log.Printf("Chat data: Title=%s, Page=%s", data["Title"], data["Page"])
-
 	// Render chat template
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
-		log.Printf("Failed to render chat template: %v", err)
 		logger.Error("request failed", "operation", "render_template", "error", err.Error())
 		http.Error(w, "Failed to render chat", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Chat template rendered successfully")
 
 	latency := time.Since(start).Milliseconds()
 	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency)
@@ -172,7 +160,6 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 	// Save user message
 	if err := s.store.SaveMessage(ctx, req.SessionID, "user", req.Query); err != nil {
-		log.Printf("Failed to save user message: %v", err)
 		logger.Warn("failed to save user message", "error", err.Error())
 	}
 
@@ -182,7 +169,6 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	// Embed query
 	queryVec, err := s.provider.Embed(ctx, req.Query)
 	if err != nil {
-		log.Printf("Embedding failed: %v", err)
 		logger.Error("request failed", "operation", "embed_query", "error", err.Error())
 		http.Error(w, "Embedding failed", http.StatusInternalServerError)
 		return
@@ -191,7 +177,6 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	// Search for relevant chunks
 	chunks, err := s.searcher.Search(ctx, queryVec, 5)
 	if err != nil {
-		log.Printf("Search failed: %v", err)
 		logger.Error("request failed", "operation", "search_chunks", "error", err.Error())
 		http.Error(w, "Search failed", http.StatusInternalServerError)
 		return
@@ -214,14 +199,12 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 	response, err := s.provider.Stream(ctx, messages, w)
 	if err != nil {
-		log.Printf("Stream failed: %v", err)
 		logger.Error("request failed", "operation", "stream_response", "error", err.Error())
 		return
 	}
 
 	// Save assistant message
 	if err := s.store.SaveMessage(ctx, req.SessionID, "assistant", response); err != nil {
-		log.Printf("Failed to save assistant message: %v", err)
 		logger.Warn("failed to save assistant message", "error", err.Error())
 	}
 
@@ -235,7 +218,6 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 
 	sessions, err := s.store.ListSessions(ctx)
 	if err != nil {
-		log.Printf("Failed to list sessions: %v", err)
 		http.Error(w, "Failed to list sessions", http.StatusInternalServerError)
 		return
 	}
@@ -270,7 +252,6 @@ func (s *Server) handleSessionHistory(w http.ResponseWriter, r *http.Request) {
 
 	messages, err := s.store.GetSessionHistory(ctx, sessionID)
 	if err != nil {
-		log.Printf("Failed to get session history: %v", err)
 		http.Error(w, "Failed to get session history", http.StatusInternalServerError)
 		return
 	}
@@ -302,8 +283,6 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debug("processing request")
 
-	log.Printf("=== handleLibrary called for path: %s ===", r.URL.Path)
-
 	// Prevent caching
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
@@ -317,7 +296,6 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 	// Get library entries
 	library, err := s.store.Library(ctx)
 	if err != nil {
-		log.Printf("Failed to get library: %v", err)
 		logger.Error("request failed", "operation", "get_library", "error", err.Error())
 		http.Error(w, "Failed to load library", http.StatusInternalServerError)
 		return
@@ -382,7 +360,6 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
-		log.Printf("Failed to render library template: %v", err)
 		logger.Error("request failed", "operation", "render_template", "error", err.Error())
 		http.Error(w, "Failed to render library", http.StatusInternalServerError)
 		return
@@ -426,7 +403,6 @@ func (s *Server) handleIngestText(w http.ResponseWriter, r *http.Request) {
 
 	// Ingest text
 	if err := s.ingester.IngestText(ctx, req.Source, req.Text, req.Tags); err != nil {
-		log.Printf("Text ingestion failed: %v", err)
 		logger.Error("request failed", "operation", "ingest_text", "source", req.Source, "error", err.Error())
 		http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 		return
@@ -478,7 +454,6 @@ func (s *Server) handleIngestURL(w http.ResponseWriter, r *http.Request) {
 
 	// Ingest URL
 	if err := s.ingester.IngestURL(ctx, req.URL, req.Tags); err != nil {
-		log.Printf("URL ingestion failed: %v", err)
 		logger.Error("request failed", "operation", "ingest_url", "url", req.URL, "error", err.Error())
 		http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 		return
@@ -544,7 +519,6 @@ func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
 
 	// Ingest file
 	if err := s.ingestFile(ctx, file, header, tags); err != nil {
-		log.Printf("File ingestion failed: %v", err)
 		logger.Error("request failed", "operation", "ingest_file", "filename", header.Filename, "error", err.Error())
 		http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 		return
@@ -611,7 +585,6 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 	// Delete document
 	if err := s.store.DeleteSource(ctx, req.Source); err != nil {
-		log.Printf("Delete failed: %v", err)
 		logger.Error("request failed", "operation", "delete_source", "source", req.Source, "error", err.Error())
 		http.Error(w, "Delete failed", http.StatusInternalServerError)
 		return
@@ -704,19 +677,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debug("processing request")
 
-	log.Printf("=== handleSettings called for path: %s ===", r.URL.Path)
-
 	// Prevent caching of settings page
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
-
-	// Debug logging - log the actual config values
-	log.Printf("=== Settings Handler Debug ===")
-	log.Printf("s.config.Provider: '%s'", s.config.Provider)
-	log.Printf("s.config.OllamaEndpoint: '%s'", s.config.OllamaEndpoint)
-	log.Printf("s.config.OllamaEmbedModel: '%s'", s.config.OllamaEmbedModel)
-	log.Printf("s.config.OllamaChatModel: '%s'", s.config.OllamaChatModel)
 
 	// Create nested config structure that matches template expectations
 	configData := map[string]interface{}{
@@ -743,11 +707,6 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	// Debug log what we're sending to template
-	providerMap := configData["Provider"].(map[string]interface{})
-	log.Printf("Template Provider.OllamaChatModel: '%s'", providerMap["OllamaChatModel"])
-	log.Printf("Template Provider.OllamaEmbedModel: '%s'", providerMap["OllamaEmbedModel"])
-
 	data := map[string]interface{}{
 		"Title":       "Settings",
 		"Page":        "settings",
@@ -756,12 +715,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
-		log.Printf("Template execution error: %v", err)
 		logger.Error("request failed", "operation", "render_template", "error", err.Error())
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("=== Settings Handler Complete ===")
 
 	latency := time.Since(start).Milliseconds()
 	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency)
@@ -796,13 +753,9 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	log.Printf("Testing connection with provider: %s", s.provider.Name())
-	log.Printf("Embed model: %s", s.config.OllamaEmbedModel)
-
 	// Test embedding with a simple text
 	embedding, err := s.provider.Embed(ctx, "test")
 	if err != nil {
-		log.Printf("Connection test failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -812,7 +765,6 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Connection test successful, embedding length: %d", len(embedding))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,

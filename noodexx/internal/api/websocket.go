@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"sync"
 
@@ -49,7 +48,6 @@ func (h *WebSocketHub) Run() {
 			h.mu.Lock()
 			for conn := range h.clients {
 				if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
-					log.Printf("WebSocket write error: %v", err)
 					conn.Close()
 					delete(h.clients, conn)
 				}
@@ -80,7 +78,6 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
 		return
 	}
 
