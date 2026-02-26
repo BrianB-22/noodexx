@@ -1,14 +1,21 @@
 package skills
 
 import (
+	"io"
+	"noodexx/internal/logging"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
+// Helper function to create a test logger
+func newTestLogger() *logging.Logger {
+	return logging.NewLogger("test", logging.DEBUG, io.Discard)
+}
+
 func TestNewLoader(t *testing.T) {
-	loader := NewLoader("/test/path", true, nil)
+	loader := NewLoader("/test/path", true, newTestLogger())
 	if loader == nil {
 		t.Fatal("NewLoader returned nil")
 	}
@@ -21,7 +28,7 @@ func TestNewLoader(t *testing.T) {
 }
 
 func TestLoadAll_NonExistentDirectory(t *testing.T) {
-	loader := NewLoader("/nonexistent/path", false, nil)
+	loader := NewLoader("/nonexistent/path", false, newTestLogger())
 	skills, err := loader.LoadAll()
 	if err != nil {
 		t.Errorf("LoadAll should not error on nonexistent directory, got: %v", err)
@@ -35,7 +42,7 @@ func TestLoadAll_EmptyDirectory(t *testing.T) {
 	// Create temporary directory
 	tmpDir := t.TempDir()
 
-	loader := NewLoader(tmpDir, false, nil)
+	loader := NewLoader(tmpDir, false, newTestLogger())
 	skills, err := loader.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll failed: %v", err)
@@ -72,7 +79,7 @@ func TestLoadAll_ValidSkill(t *testing.T) {
 		t.Fatalf("Failed to write executable: %v", err)
 	}
 
-	loader := NewLoader(tmpDir, false, nil)
+	loader := NewLoader(tmpDir, false, newTestLogger())
 	skills, err := loader.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll failed: %v", err)
@@ -126,7 +133,7 @@ func TestLoadAll_PrivacyModeFiltersNetworkSkills(t *testing.T) {
 	}
 
 	// Test with privacy mode enabled
-	loader := NewLoader(tmpDir, true, nil)
+	loader := NewLoader(tmpDir, true, newTestLogger())
 	skills, err := loader.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll failed: %v", err)
@@ -136,7 +143,7 @@ func TestLoadAll_PrivacyModeFiltersNetworkSkills(t *testing.T) {
 	}
 
 	// Test with privacy mode disabled
-	loader = NewLoader(tmpDir, false, nil)
+	loader = NewLoader(tmpDir, false, newTestLogger())
 	skills, err = loader.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll failed: %v", err)
@@ -153,7 +160,7 @@ func TestLoadSkill_MissingSkillJSON(t *testing.T) {
 		t.Fatalf("Failed to create skill directory: %v", err)
 	}
 
-	loader := NewLoader(tmpDir, false, nil)
+	loader := NewLoader(tmpDir, false, newTestLogger())
 	_, err := loader.loadSkill(skillDir)
 	if err == nil {
 		t.Error("Expected error for missing skill.json")
@@ -172,7 +179,7 @@ func TestLoadSkill_InvalidJSON(t *testing.T) {
 		t.Fatalf("Failed to write skill.json: %v", err)
 	}
 
-	loader := NewLoader(tmpDir, false, nil)
+	loader := NewLoader(tmpDir, false, newTestLogger())
 	_, err := loader.loadSkill(skillDir)
 	if err == nil {
 		t.Error("Expected error for invalid JSON")
@@ -206,7 +213,7 @@ func TestLoadSkill_MissingRequiredFields(t *testing.T) {
 				t.Fatalf("Failed to write skill.json: %v", err)
 			}
 
-			loader := NewLoader(tmpDir, false, nil)
+			loader := NewLoader(tmpDir, false, newTestLogger())
 			_, err := loader.loadSkill(skillDir)
 			if err == nil {
 				t.Errorf("Expected error for %s", tt.name)
@@ -230,7 +237,7 @@ func TestLoadSkill_MissingExecutable(t *testing.T) {
 		t.Fatalf("Failed to write skill.json: %v", err)
 	}
 
-	loader := NewLoader(tmpDir, false, nil)
+	loader := NewLoader(tmpDir, false, newTestLogger())
 	_, err := loader.loadSkill(skillDir)
 	if err == nil {
 		t.Error("Expected error for missing executable")
@@ -258,7 +265,7 @@ func TestLoadSkill_DefaultTimeout(t *testing.T) {
 		t.Fatalf("Failed to write executable: %v", err)
 	}
 
-	loader := NewLoader(tmpDir, false, nil)
+	loader := NewLoader(tmpDir, false, newTestLogger())
 	skill, err := loader.loadSkill(skillDir)
 	if err != nil {
 		t.Fatalf("loadSkill failed: %v", err)
@@ -300,7 +307,7 @@ func TestLoadSkill_WithTriggers(t *testing.T) {
 		t.Fatalf("Failed to write executable: %v", err)
 	}
 
-	loader := NewLoader(tmpDir, false, nil)
+	loader := NewLoader(tmpDir, false, newTestLogger())
 	skill, err := loader.loadSkill(skillDir)
 	if err != nil {
 		t.Fatalf("loadSkill failed: %v", err)

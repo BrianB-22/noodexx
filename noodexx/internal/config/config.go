@@ -15,6 +15,8 @@ type Config struct {
 	Logging    LoggingConfig    `json:"logging"`
 	Guardrails GuardrailsConfig `json:"guardrails"`
 	Server     ServerConfig     `json:"server"`
+	UserMode   string           `json:"user_mode"` // "single" or "multi"
+	Auth       AuthConfig       `json:"auth"`
 }
 
 // ProviderConfig configures the LLM provider
@@ -60,6 +62,14 @@ type ServerConfig struct {
 	BindAddress string `json:"bind_address"`
 }
 
+// AuthConfig controls authentication behavior
+type AuthConfig struct {
+	Provider               string `json:"provider"`                 // "userpass", "mfa", "sso"
+	SessionExpiryDays      int    `json:"session_expiry_days"`      // Default: 7
+	LockoutThreshold       int    `json:"lockout_threshold"`        // Default: 5
+	LockoutDurationMinutes int    `json:"lockout_duration_minutes"` // Default: 15
+}
+
 // Load reads configuration from file and environment
 func Load(path string) (*Config, error) {
 	// Default configuration
@@ -91,6 +101,13 @@ func Load(path string) (*Config, error) {
 		Server: ServerConfig{
 			Port:        8080,
 			BindAddress: "127.0.0.1",
+		},
+		UserMode: "single",
+		Auth: AuthConfig{
+			Provider:               "userpass",
+			SessionExpiryDays:      7,
+			LockoutThreshold:       5,
+			LockoutDurationMinutes: 15,
 		},
 	}
 
@@ -188,6 +205,12 @@ func (c *Config) applyEnvOverrides() {
 	if v := os.Getenv("NOODEXX_SERVER_BIND_ADDRESS"); v != "" {
 		c.Server.BindAddress = v
 	}
+	if v := os.Getenv("NOODEXX_USER_MODE"); v != "" {
+		c.UserMode = v
+	}
+	if v := os.Getenv("NOODEXX_AUTH_PROVIDER"); v != "" {
+		c.Auth.Provider = v
+	}
 }
 
 // Validate checks configuration validity
@@ -234,6 +257,17 @@ func (c *Config) Validate() error {
 	validPII := map[string]bool{"strict": true, "normal": true, "off": true}
 	if !validPII[c.Guardrails.PIIDetection] {
 		return fmt.Errorf("invalid PII detection level: %s (must be strict, normal, or off)", c.Guardrails.PIIDetection)
+	}
+
+	// User mode validation
+	if c.UserMode != "single" && c.UserMode != "multi" {
+		return fmt.Errorf("invalid user_mode: %s (must be single or multi)", c.UserMode)
+	}
+
+	// Auth provider validation
+	validAuthProviders := map[string]bool{"userpass": true, "mfa": true, "sso": true}
+	if !validAuthProviders[c.Auth.Provider] {
+		return fmt.Errorf("invalid auth provider: %s (must be userpass, mfa, or sso)", c.Auth.Provider)
 	}
 
 	return nil

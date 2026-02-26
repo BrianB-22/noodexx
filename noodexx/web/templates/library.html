@@ -47,9 +47,26 @@
     <div id="library-grid" 
          class="document-grid"
          hx-get="/api/library{{if .SelectedTag}}?tag={{.SelectedTag}}{{end}}"
-         hx-trigger="load, refresh from:body"
+         hx-trigger="load, refresh"
          hx-swap="innerHTML">
         <!-- Documents will be loaded here via HTMX -->
+        <!-- 
+            NOTE: Server-side handler should render document cards with:
+            1. Visibility indicators in document-meta section:
+               - Private: <span class="visibility-indicator visibility-private">
+                            <svg>lock icon</svg> Private
+                          </span>
+               - Shared: <span class="visibility-indicator visibility-shared">
+                           <svg>people icon</svg> Shared (count)
+                         </span>
+               - Public: <span class="visibility-indicator visibility-public">
+                           <svg>globe icon</svg> Public
+                         </span>
+            2. Share button in document-actions:
+               - <button class="share-button" disabled title="Sharing coming in Phase 5">
+                   <svg>share icon</svg> Share
+                 </button>
+        -->
         <div class="library-loading">
             <div class="loading-spinner"></div>
             <p>Loading documents...</p>
@@ -126,6 +143,22 @@ async function uploadFiles(files) {
     }
     
     const fileArray = Array.from(files);
+    
+    // Check for existing documents and get user confirmation
+    const existingDocs = getExistingDocuments();
+    const duplicates = fileArray.filter(file => existingDocs.includes(file.name));
+    
+    if (duplicates.length > 0) {
+        const fileList = duplicates.map(f => f.name).join(', ');
+        const message = duplicates.length === 1 
+            ? `"${fileList}" already exists. Replace it?`
+            : `${duplicates.length} files already exist (${fileList}). Replace them?`;
+        
+        if (!confirm(message)) {
+            return;
+        }
+    }
+    
     let successCount = 0;
     let errorCount = 0;
     
@@ -185,6 +218,19 @@ async function uploadFile(file) {
     }
     
     return response.json();
+}
+
+// Get list of existing document names from the DOM
+function getExistingDocuments() {
+    const cards = document.querySelectorAll('.document-card');
+    const sources = [];
+    cards.forEach(card => {
+        const source = card.getAttribute('data-source');
+        if (source) {
+            sources.push(source);
+        }
+    });
+    return sources;
 }
 
 // Filter documents by tag
@@ -530,6 +576,14 @@ function expandDocument(source) {
     color: var(--text-secondary);
     padding-top: 0.5rem;
     border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.document-visibility {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .document-chunk-count {
@@ -579,6 +633,64 @@ function expandDocument(source) {
 
 .chunk-item:last-child {
     margin-bottom: 0;
+}
+
+/* Visibility Indicators */
+.visibility-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.visibility-indicator svg {
+    width: 12px;
+    height: 12px;
+}
+
+.visibility-private {
+    background: var(--background);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
+.visibility-shared {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.visibility-public {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.share-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    cursor: not-allowed;
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+
+.share-button svg {
+    width: 14px;
+    height: 14px;
+}
+
+.share-button:hover {
+    background: var(--background);
 }
 
 /* Empty State */

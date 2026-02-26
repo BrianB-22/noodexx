@@ -22,16 +22,17 @@ type Watcher struct {
 	allowedExts []string
 	maxSize     int64
 	logger      *logging.Logger
+	folderUsers map[string]int64 // Maps folder path to user_id
 }
 
 // Ingester interface for processing files
 type Ingester interface {
-	IngestText(ctx context.Context, source, text string, tags []string) error
+	IngestText(ctx context.Context, userID int64, source, text string, tags []string) error
 }
 
 // Store interface for folder management
 type Store interface {
-	AddWatchedFolder(ctx context.Context, path string) error
+	AddWatchedFolder(ctx context.Context, userID int64, path string) error
 	GetWatchedFolders(ctx context.Context) ([]WatchedFolder, error)
 	DeleteSource(ctx context.Context, source string) error
 }
@@ -39,6 +40,7 @@ type Store interface {
 // WatchedFolder represents a monitored directory
 type WatchedFolder struct {
 	ID       int64
+	UserID   int64
 	Path     string
 	Active   bool
 	LastScan time.Time
@@ -60,6 +62,7 @@ func NewWatcher(ingester Ingester, store Store, privacyMode bool, logger *loggin
 		allowedExts: []string{".txt", ".md", ".pdf"},
 		maxSize:     10 * 1024 * 1024, // 10MB
 		logger:      logger,
+		folderUsers: make(map[string]int64),
 	}, nil
 }
 
@@ -67,14 +70,14 @@ func NewWatcher(ingester Ingester, store Store, privacyMode bool, logger *loggin
 func (w *Watcher) Start(ctx context.Context) error {
 	w.logger.Debug("starting file watcher")
 
-	// Load watched folders from database
+	// Load watched folders from database (all users)
 	folders, err := w.store.GetWatchedFolders(ctx)
 	if err != nil {
 		w.logger.WithContext("error", err.Error()).Error("failed to load watched folders")
 		return fmt.Errorf("failed to load watched folders: %w", err)
 	}
 
-	// Add each folder to fsnotify
+	// Add each folder to fsnotify and track user ownership
 	for _, folder := range folders {
 		if !folder.Active {
 			continue
@@ -96,7 +99,13 @@ func (w *Watcher) Start(ctx context.Context) error {
 			continue
 		}
 
-		w.logger.WithContext("folder_path", folder.Path).Debug("watching folder")
+		// Track which user owns this folder
+		w.folderUsers[folder.Path] = folder.UserID
+
+		w.logger.WithFields(map[string]interface{}{
+			"folder_path": folder.Path,
+			"user_id":     folder.UserID,
+		}).Debug("watching folder")
 	}
 
 	// Start event loop in goroutine
@@ -142,14 +151,21 @@ func (w *Watcher) handleEvent(ctx context.Context, event fsnotify.Event) {
 		return
 	}
 
+	// Determine which folder this file belongs to
+	userID := w.getUserIDForFile(event.Name)
+	if userID == 0 {
+		logger.Warn("file does not belong to any watched folder")
+		return
+	}
+
 	switch {
 	case event.Op&fsnotify.Create == fsnotify.Create:
 		logger.Debug("file created")
-		w.ingestFile(ctx, event.Name)
+		w.ingestFile(ctx, event.Name, userID)
 
 	case event.Op&fsnotify.Write == fsnotify.Write:
 		logger.Debug("file modified")
-		w.ingestFile(ctx, event.Name)
+		w.ingestFile(ctx, event.Name, userID)
 
 	case event.Op&fsnotify.Remove == fsnotify.Remove:
 		logger.Debug("file deleted")
@@ -217,7 +233,7 @@ func (w *Watcher) validatePath(path string) error {
 }
 
 // AddFolder adds a new folder to watch
-func (w *Watcher) AddFolder(ctx context.Context, path string) error {
+func (w *Watcher) AddFolder(ctx context.Context, userID int64, path string) error {
 	logger := w.logger.WithContext("folder_path", path)
 	logger.Debug("adding watched folder")
 
@@ -231,19 +247,22 @@ func (w *Watcher) AddFolder(ctx context.Context, path string) error {
 		return fmt.Errorf("failed to add folder to watcher: %w", err)
 	}
 
-	if err := w.store.AddWatchedFolder(ctx, path); err != nil {
+	if err := w.store.AddWatchedFolder(ctx, userID, path); err != nil {
 		// Remove from fsnotify if database save fails
 		w.fsWatcher.Remove(path)
 		logger.WithContext("error", err.Error()).Error("failed to save watched folder")
 		return fmt.Errorf("failed to save watched folder: %w", err)
 	}
 
+	// Track the user ownership
+	w.folderUsers[path] = userID
+
 	logger.Debug("watched folder added successfully")
 	return nil
 }
 
 // ingestFile processes a file by reading it and calling ingester
-func (w *Watcher) ingestFile(ctx context.Context, path string) {
+func (w *Watcher) ingestFile(ctx context.Context, path string, userID int64) {
 	logger := w.logger.WithContext("file_path", path)
 
 	// Read file content
@@ -256,8 +275,8 @@ func (w *Watcher) ingestFile(ctx context.Context, path string) {
 	// Use file path as source
 	tags := []string{"auto-ingested"}
 
-	// Ingest the text
-	if err := w.ingester.IngestText(ctx, path, string(content), tags); err != nil {
+	// Ingest the text with the folder's user_id
+	if err := w.ingester.IngestText(ctx, userID, path, string(content), tags); err != nil {
 		logger.WithContext("error", err.Error()).Error("failed to ingest file")
 	} else {
 		logger.Debug("file ingested successfully")
@@ -273,4 +292,15 @@ func (w *Watcher) deleteFile(ctx context.Context, path string) {
 	} else {
 		logger.Debug("chunks deleted successfully")
 	}
+}
+
+// getUserIDForFile determines which user owns the folder containing this file
+func (w *Watcher) getUserIDForFile(filePath string) int64 {
+	// Check each watched folder to see if this file is within it
+	for folderPath, userID := range w.folderUsers {
+		if strings.HasPrefix(filePath, folderPath) {
+			return userID
+		}
+	}
+	return 0 // No matching folder found
 }

@@ -12,7 +12,7 @@ func TestWatchedFolderOperations(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	// Create store
-	store, err := NewStore(dbPath)
+	store, err := NewStore(dbPath, "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestWatchedFolderOperations(t *testing.T) {
 	// Test AddWatchedFolder
 	t.Run("AddWatchedFolder", func(t *testing.T) {
 		testPath := "/test/path/documents"
-		err := store.AddWatchedFolder(ctx, testPath)
+		err := store.AddWatchedFolder(ctx, 1, testPath)
 		if err != nil {
 			t.Errorf("AddWatchedFolder failed: %v", err)
 		}
@@ -52,7 +52,7 @@ func TestWatchedFolderOperations(t *testing.T) {
 		// Add more folders
 		paths := []string{"/test/path/notes", "/test/path/projects"}
 		for _, path := range paths {
-			err := store.AddWatchedFolder(ctx, path)
+			err := store.AddWatchedFolder(ctx, 1, path)
 			if err != nil {
 				t.Errorf("AddWatchedFolder failed for %s: %v", path, err)
 			}
@@ -81,13 +81,32 @@ func TestWatchedFolderOperations(t *testing.T) {
 	// Test RemoveWatchedFolder
 	t.Run("RemoveWatchedFolder", func(t *testing.T) {
 		pathToRemove := "/test/path/notes"
-		err := store.RemoveWatchedFolder(ctx, pathToRemove)
+
+		// First, get the folder ID
+		folders, err := store.GetWatchedFolders(ctx)
+		if err != nil {
+			t.Errorf("GetWatchedFolders failed: %v", err)
+		}
+
+		var folderID int64
+		for _, folder := range folders {
+			if folder.Path == pathToRemove {
+				folderID = folder.ID
+				break
+			}
+		}
+
+		if folderID == 0 {
+			t.Fatalf("Could not find folder with path %s", pathToRemove)
+		}
+
+		err = store.RemoveWatchedFolder(ctx, 1, folderID)
 		if err != nil {
 			t.Errorf("RemoveWatchedFolder failed: %v", err)
 		}
 
 		// Verify it was removed
-		folders, err := store.GetWatchedFolders(ctx)
+		folders, err = store.GetWatchedFolders(ctx)
 		if err != nil {
 			t.Errorf("GetWatchedFolders failed: %v", err)
 		}
@@ -107,19 +126,19 @@ func TestWatchedFolderOperations(t *testing.T) {
 	// Test duplicate path handling
 	t.Run("AddWatchedFolder_Duplicate", func(t *testing.T) {
 		duplicatePath := "/test/path/documents"
-		err := store.AddWatchedFolder(ctx, duplicatePath)
+		err := store.AddWatchedFolder(ctx, 1, duplicatePath)
 		if err == nil {
 			t.Errorf("Expected error when adding duplicate path, got nil")
 		}
 	})
 
-	// Test RemoveWatchedFolder with non-existent path
+	// Test RemoveWatchedFolder with non-existent ID
 	t.Run("RemoveWatchedFolder_NonExistent", func(t *testing.T) {
-		nonExistentPath := "/test/path/nonexistent"
-		err := store.RemoveWatchedFolder(ctx, nonExistentPath)
-		// Should not error even if path doesn't exist
-		if err != nil {
-			t.Errorf("RemoveWatchedFolder failed for non-existent path: %v", err)
+		nonExistentID := int64(99999)
+		err := store.RemoveWatchedFolder(ctx, 1, nonExistentID)
+		// Should error when folder doesn't exist
+		if err == nil {
+			t.Errorf("Expected error for non-existent folder ID, got nil")
 		}
 	})
 }
@@ -130,7 +149,7 @@ func TestWatchedFolderTimestamps(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	// Create store
-	store, err := NewStore(dbPath)
+	store, err := NewStore(dbPath, "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -140,7 +159,7 @@ func TestWatchedFolderTimestamps(t *testing.T) {
 
 	// Add a watched folder
 	testPath := "/test/path/timestamps"
-	err = store.AddWatchedFolder(ctx, testPath)
+	err = store.AddWatchedFolder(ctx, 1, testPath)
 	if err != nil {
 		t.Fatalf("AddWatchedFolder failed: %v", err)
 	}
@@ -167,7 +186,7 @@ func TestWatchedFolderEmptyList(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	// Create store
-	store, err := NewStore(dbPath)
+	store, err := NewStore(dbPath, "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -193,7 +212,7 @@ func TestWatchedFolderIntegration(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	// Create store
-	store, err := NewStore(dbPath)
+	store, err := NewStore(dbPath, "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -210,7 +229,7 @@ func TestWatchedFolderIntegration(t *testing.T) {
 
 	// Add all folders
 	for _, folder := range folders {
-		if err := store.AddWatchedFolder(ctx, folder); err != nil {
+		if err := store.AddWatchedFolder(ctx, 1, folder); err != nil {
 			t.Errorf("Failed to add folder %s: %v", folder, err)
 		}
 	}
@@ -225,8 +244,25 @@ func TestWatchedFolderIntegration(t *testing.T) {
 		t.Errorf("Expected %d folders, got %d", len(folders), len(watchedFolders))
 	}
 
-	// Remove one folder
-	if err := store.RemoveWatchedFolder(ctx, folders[1]); err != nil {
+	// Remove one folder - first get its ID
+	watchedFolders, err = store.GetWatchedFolders(ctx)
+	if err != nil {
+		t.Fatalf("GetWatchedFolders failed: %v", err)
+	}
+
+	var folderIDToRemove int64
+	for _, wf := range watchedFolders {
+		if wf.Path == folders[1] {
+			folderIDToRemove = wf.ID
+			break
+		}
+	}
+
+	if folderIDToRemove == 0 {
+		t.Fatalf("Could not find folder with path %s", folders[1])
+	}
+
+	if err := store.RemoveWatchedFolder(ctx, 1, folderIDToRemove); err != nil {
 		t.Errorf("Failed to remove folder: %v", err)
 	}
 

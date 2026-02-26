@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"mime/multipart"
+	"noodexx/internal/logging"
 	"strings"
 	"testing"
 )
@@ -37,6 +38,7 @@ func (m *mockProvider) Stream(ctx context.Context, messages []Message, w io.Writ
 
 type mockStore struct {
 	chunks []struct {
+		userID    int64
 		source    string
 		text      string
 		embedding []float32
@@ -45,14 +47,15 @@ type mockStore struct {
 	}
 }
 
-func (m *mockStore) SaveChunk(ctx context.Context, source, text string, embedding []float32, tags []string, summary string) error {
+func (m *mockStore) SaveChunk(ctx context.Context, userID int64, source, text string, embedding []float32, tags []string, summary string) error {
 	m.chunks = append(m.chunks, struct {
+		userID    int64
 		source    string
 		text      string
 		embedding []float32
 		tags      []string
 		summary   string
-	}{source, text, embedding, tags, summary})
+	}{userID, source, text, embedding, tags, summary})
 	return nil
 }
 
@@ -76,15 +79,20 @@ func (m *mockChunker) ChunkText(text string) []string {
 	return chunks
 }
 
+// Helper function to create a test logger
+func newTestLogger() *logging.Logger {
+	return logging.NewLogger("test", logging.DEBUG, io.Discard)
+}
+
 func TestIngestText_Basic(t *testing.T) {
 	store := &mockStore{}
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false, nil)
+	ingester := NewIngester(provider, store, chunker, false, false, newTestLogger())
 
 	ctx := context.Background()
-	err := ingester.IngestText(ctx, "test.txt", "This is a test document.", []string{"test"})
+	err := ingester.IngestText(ctx, 1, "test.txt", "This is a test document.", []string{"test"})
 
 	if err != nil {
 		t.Fatalf("IngestText failed: %v", err)
@@ -104,10 +112,10 @@ func TestIngestText_WithSummary(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, true, nil)
+	ingester := NewIngester(provider, store, chunker, false, true, newTestLogger())
 
 	ctx := context.Background()
-	err := ingester.IngestText(ctx, "test.txt", "This is a test document.", []string{"test"})
+	err := ingester.IngestText(ctx, 1, "test.txt", "This is a test document.", []string{"test"})
 
 	if err != nil {
 		t.Fatalf("IngestText failed: %v", err)
@@ -127,11 +135,11 @@ func TestIngestText_PIIDetection(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false, nil)
+	ingester := NewIngester(provider, store, chunker, false, false, newTestLogger())
 
 	ctx := context.Background()
 	// Text with SSN pattern
-	err := ingester.IngestText(ctx, "test.txt", "My SSN is 123-45-6789", []string{"test"})
+	err := ingester.IngestText(ctx, 1, "test.txt", "My SSN is 123-45-6789", []string{"test"})
 
 	if err == nil {
 		t.Fatal("Expected PII detection error, got nil")
@@ -151,11 +159,11 @@ func TestIngestText_GuardrailsCheck(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false, nil)
+	ingester := NewIngester(provider, store, chunker, false, false, newTestLogger())
 
 	ctx := context.Background()
 	// Sensitive filename
-	err := ingester.IngestText(ctx, ".env", "SECRET_KEY=abc123", []string{"test"})
+	err := ingester.IngestText(ctx, 1, ".env", "SECRET_KEY=abc123", []string{"test"})
 
 	if err == nil {
 		t.Fatal("Expected guardrails error, got nil")
@@ -175,10 +183,10 @@ func TestIngestURL_PrivacyMode(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, true, false, nil)
+	ingester := NewIngester(provider, store, chunker, true, false, newTestLogger())
 
 	ctx := context.Background()
-	err := ingester.IngestURL(ctx, "https://example.com", []string{"test"})
+	err := ingester.IngestURL(ctx, 1, "https://example.com", []string{"test"})
 
 	if err == nil {
 		t.Fatal("Expected privacy mode error, got nil")
@@ -194,7 +202,7 @@ func TestIngestFile_InvalidExtension(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false, nil)
+	ingester := NewIngester(provider, store, chunker, false, false, newTestLogger())
 
 	ctx := context.Background()
 
@@ -205,7 +213,7 @@ func TestIngestFile_InvalidExtension(t *testing.T) {
 		Size:     100,
 	}
 
-	err := ingester.IngestFile(ctx, file, header, []string{"test"})
+	err := ingester.IngestFile(ctx, 1, file, header, []string{"test"})
 
 	if err == nil {
 		t.Fatal("Expected extension error, got nil")
@@ -221,7 +229,7 @@ func TestIngestFile_OversizedFile(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false, nil)
+	ingester := NewIngester(provider, store, chunker, false, false, newTestLogger())
 
 	ctx := context.Background()
 
@@ -232,7 +240,7 @@ func TestIngestFile_OversizedFile(t *testing.T) {
 		Size:     20 * 1024 * 1024, // 20MB (exceeds 10MB limit)
 	}
 
-	err := ingester.IngestFile(ctx, file, header, []string{"test"})
+	err := ingester.IngestFile(ctx, 1, file, header, []string{"test"})
 
 	if err == nil {
 		t.Fatal("Expected size limit error, got nil")
@@ -260,13 +268,13 @@ func TestGenerateSummary_TruncatesLongText(t *testing.T) {
 	}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, true, nil)
+	ingester := NewIngester(provider, store, chunker, false, true, newTestLogger())
 
 	ctx := context.Background()
 	// Create a long text (more than 1000 characters)
 	longText := strings.Repeat("This is a long document. ", 100)
 
-	err := ingester.IngestText(ctx, "test.txt", longText, []string{"test"})
+	err := ingester.IngestText(ctx, 1, "test.txt", longText, []string{"test"})
 
 	if err != nil {
 		t.Fatalf("IngestText failed: %v", err)
@@ -278,7 +286,7 @@ func TestIngestFile_TextFile(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false, nil)
+	ingester := NewIngester(provider, store, chunker, false, false, newTestLogger())
 
 	ctx := context.Background()
 
@@ -290,7 +298,7 @@ func TestIngestFile_TextFile(t *testing.T) {
 		Size:     int64(len(content)),
 	}
 
-	err := ingester.IngestFile(ctx, file, header, []string{"test"})
+	err := ingester.IngestFile(ctx, 1, file, header, []string{"test"})
 
 	if err != nil {
 		t.Fatalf("IngestFile failed: %v", err)
@@ -314,7 +322,7 @@ func TestIngestFile_MarkdownFile(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false, nil)
+	ingester := NewIngester(provider, store, chunker, false, false, newTestLogger())
 
 	ctx := context.Background()
 
@@ -326,7 +334,7 @@ func TestIngestFile_MarkdownFile(t *testing.T) {
 		Size:     int64(len(content)),
 	}
 
-	err := ingester.IngestFile(ctx, file, header, []string{"test"})
+	err := ingester.IngestFile(ctx, 1, file, header, []string{"test"})
 
 	if err != nil {
 		t.Fatalf("IngestFile failed: %v", err)
@@ -346,7 +354,7 @@ func TestIngestFile_PDFFile(t *testing.T) {
 	provider := &mockProvider{}
 	chunker := &mockChunker{chunkSize: 100}
 
-	ingester := NewIngester(provider, store, chunker, false, false, nil)
+	ingester := NewIngester(provider, store, chunker, false, false, newTestLogger())
 
 	ctx := context.Background()
 
@@ -357,7 +365,7 @@ func TestIngestFile_PDFFile(t *testing.T) {
 		Size:     100,
 	}
 
-	err := ingester.IngestFile(ctx, file, header, []string{"test"})
+	err := ingester.IngestFile(ctx, 1, file, header, []string{"test"})
 
 	// Should fail because PDF parsing is not implemented yet
 	if err == nil {

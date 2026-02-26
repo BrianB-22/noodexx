@@ -24,14 +24,62 @@
                 </button>
             </div>
 
-            <!-- Privacy Mode Badge -->
-            {{if .PrivacyMode}}
-            <div class="privacy-badge">
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"/>
-                </svg>
-                <span class="privacy-text">Privacy Mode</span>
+            <!-- Privacy Mode Toggle -->
+            <div class="privacy-toggle-container">
+                <label class="privacy-toggle-label">
+                    <input type="checkbox" id="privacyModeToggle" 
+                           {{if .PrivacyMode}}checked{{end}}
+                           onchange="togglePrivacyMode()">
+                    <span class="privacy-toggle-slider"></span>
+                    <span class="privacy-toggle-text">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"/>
+                        </svg>
+                        <span id="privacyModeLabel">{{if .PrivacyMode}}Local Only{{else}}Cloud AI{{end}}</span>
+                    </span>
+                </label>
             </div>
+
+            <!-- User Menu (Multi-User Mode) -->
+            {{if .UserMode}}
+            {{if eq .UserMode "multi"}}
+            {{if .CurrentUser}}
+            <div class="user-menu">
+                <button class="user-menu-button" id="userMenuButton" onclick="toggleUserMenu()">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                    </svg>
+                    <span class="user-menu-name">{{.CurrentUser.Username}}</span>
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="user-menu-chevron">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
+                    </svg>
+                </button>
+                <div class="user-menu-dropdown hidden" id="userMenuDropdown">
+                    <a href="/settings" class="user-menu-item">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"/>
+                        </svg>
+                        Settings
+                    </a>
+                    {{if .CurrentUser.IsAdmin}}
+                    <a href="/settings#user-management" class="user-menu-item">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                        </svg>
+                        User Management
+                    </a>
+                    {{end}}
+                    <div class="user-menu-divider"></div>
+                    <button class="user-menu-item" onclick="logoutFromMenu()">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"/>
+                        </svg>
+                        Logout
+                    </button>
+                </div>
+            </div>
+            {{end}}
+            {{end}}
             {{end}}
 
             <!-- Navigation Links -->
@@ -226,7 +274,82 @@
                     localStorage.setItem('sidebarCollapsed', isCollapsed);
                 });
             }
+
+            // Close user menu when clicking outside
+            document.addEventListener('click', function(e) {
+                const userMenu = document.getElementById('userMenuDropdown');
+                const userMenuButton = document.getElementById('userMenuButton');
+                if (userMenu && userMenuButton && !userMenuButton.contains(e.target) && !userMenu.contains(e.target)) {
+                    userMenu.classList.add('hidden');
+                }
+            });
         });
+
+        // Toggle user menu dropdown
+        function toggleUserMenu() {
+            const dropdown = document.getElementById('userMenuDropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('hidden');
+            }
+        }
+
+        // Logout from user menu
+        async function logoutFromMenu() {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/login';
+                } else {
+                    console.error('Logout failed');
+                    alert('Failed to logout. Please try again.');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Failed to logout. Please try again.');
+            }
+        }
+
+        // Toggle privacy mode
+        async function togglePrivacyMode() {
+            const checkbox = document.getElementById('privacyModeToggle');
+            const label = document.getElementById('privacyModeLabel');
+            const isEnabled = checkbox.checked;
+            
+            // Update label immediately for responsive feel
+            label.textContent = isEnabled ? 'Local Only' : 'Cloud AI';
+            
+            try {
+                const response = await fetch('/api/privacy-mode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ enabled: isEnabled })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    console.log('Privacy mode updated:', isEnabled);
+                    const providerName = isEnabled ? 'Ollama (Local)' : result.provider;
+                    alert('Privacy mode updated! Now using: ' + providerName + '\\n\\nNote: Please restart the application for the provider switch to take full effect.');
+                } else {
+                    // Revert on error
+                    checkbox.checked = !isEnabled;
+                    label.textContent = !isEnabled ? 'Local Only' : 'Cloud AI';
+                    alert('Failed to update privacy mode: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Failed to toggle privacy mode:', error);
+                // Revert on error
+                checkbox.checked = !isEnabled;
+                label.textContent = !isEnabled ? 'Local Only' : 'Cloud AI';
+                alert('Failed to update privacy mode: ' + error.message);
+            }
+        }
     </script>
 
     <!-- HTMX and App Scripts -->

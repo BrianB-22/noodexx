@@ -2,6 +2,8 @@ package skills
 
 import (
 	"context"
+	"io"
+	"noodexx/internal/logging"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,8 +40,9 @@ EOF
 		Settings:   map[string]interface{}{"key": "value"},
 	}
 
-	// Create executor
-	executor := NewExecutor(false, nil)
+	// Create executor with a logger
+	logger := logging.NewLogger("test", logging.DEBUG, io.Discard)
+	executor := NewExecutor(false, logger)
 
 	// Execute skill
 	input := Input{
@@ -96,8 +99,9 @@ echo '{"result": "Should not reach here"}'
 		Settings:   map[string]interface{}{},
 	}
 
-	// Create executor
-	executor := NewExecutor(false, nil)
+	// Create executor with a logger
+	logger := logging.NewLogger("test", logging.DEBUG, io.Discard)
+	executor := NewExecutor(false, logger)
 
 	// Execute skill
 	input := Input{
@@ -153,7 +157,8 @@ func TestExecutor_buildEnv(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewExecutor(tt.privacyMode, nil)
+			logger := logging.NewLogger("test", logging.DEBUG, io.Discard)
+			executor := NewExecutor(tt.privacyMode, logger)
 			env := executor.buildEnv(skill)
 
 			// Check that expected env vars are present

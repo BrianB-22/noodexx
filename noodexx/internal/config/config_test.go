@@ -85,6 +85,13 @@ func TestLoad_ExistingConfig(t *testing.T) {
 			Port:        9090,
 			BindAddress: "127.0.0.1",
 		},
+		UserMode: "single",
+		Auth: AuthConfig{
+			Provider:               "userpass",
+			SessionExpiryDays:      7,
+			LockoutThreshold:       5,
+			LockoutDurationMinutes: 15,
+		},
 	}
 
 	// Save custom config
@@ -180,6 +187,13 @@ func TestValidate_PrivacyMode(t *testing.T) {
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
+				UserMode:   "single",
+				Auth: AuthConfig{
+					Provider:               "userpass",
+					SessionExpiryDays:      7,
+					LockoutThreshold:       5,
+					LockoutDurationMinutes: 15,
+				},
 			},
 			expectError: false,
 		},
@@ -194,6 +208,13 @@ func TestValidate_PrivacyMode(t *testing.T) {
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
+				UserMode:   "single",
+				Auth: AuthConfig{
+					Provider:               "userpass",
+					SessionExpiryDays:      7,
+					LockoutThreshold:       5,
+					LockoutDurationMinutes: 15,
+				},
 			},
 			expectError: true,
 		},
@@ -208,6 +229,13 @@ func TestValidate_PrivacyMode(t *testing.T) {
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
+				UserMode:   "single",
+				Auth: AuthConfig{
+					Provider:               "userpass",
+					SessionExpiryDays:      7,
+					LockoutThreshold:       5,
+					LockoutDurationMinutes: 15,
+				},
 			},
 			expectError: true,
 		},
@@ -242,6 +270,13 @@ func TestValidate_ProviderRequirements(t *testing.T) {
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
+				UserMode:   "single",
+				Auth: AuthConfig{
+					Provider:               "userpass",
+					SessionExpiryDays:      7,
+					LockoutThreshold:       5,
+					LockoutDurationMinutes: 15,
+				},
 			},
 			expectError: true,
 		},
@@ -255,6 +290,13 @@ func TestValidate_ProviderRequirements(t *testing.T) {
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
+				UserMode:   "single",
+				Auth: AuthConfig{
+					Provider:               "userpass",
+					SessionExpiryDays:      7,
+					LockoutThreshold:       5,
+					LockoutDurationMinutes: 15,
+				},
 			},
 			expectError: true,
 		},
@@ -268,6 +310,13 @@ func TestValidate_ProviderRequirements(t *testing.T) {
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
+				UserMode:   "single",
+				Auth: AuthConfig{
+					Provider:               "userpass",
+					SessionExpiryDays:      7,
+					LockoutThreshold:       5,
+					LockoutDurationMinutes: 15,
+				},
 			},
 			expectError: true,
 		},
@@ -309,6 +358,13 @@ func TestSave(t *testing.T) {
 		Server: ServerConfig{
 			Port:        8080,
 			BindAddress: "127.0.0.1",
+		},
+		UserMode: "single",
+		Auth: AuthConfig{
+			Provider:               "userpass",
+			SessionExpiryDays:      7,
+			LockoutThreshold:       5,
+			LockoutDurationMinutes: 15,
 		},
 	}
 
@@ -428,6 +484,159 @@ func TestValidate_LogLevel(t *testing.T) {
 				},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
+				UserMode:   "single",
+				Auth: AuthConfig{
+					Provider:               "userpass",
+					SessionExpiryDays:      7,
+					LockoutThreshold:       5,
+					LockoutDurationMinutes: 15,
+				},
+			}
+
+			err := cfg.Validate()
+			if tt.expectError && err == nil {
+				t.Error("Expected validation error, got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoad_UserModeAndAuthDefaults(t *testing.T) {
+	// Create a temporary directory for testing
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	// Load config (should create default)
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+
+	// Verify user_mode defaults
+	if cfg.UserMode != "single" {
+		t.Errorf("Expected user_mode 'single', got '%s'", cfg.UserMode)
+	}
+
+	// Verify auth defaults
+	if cfg.Auth.Provider != "userpass" {
+		t.Errorf("Expected auth provider 'userpass', got '%s'", cfg.Auth.Provider)
+	}
+	if cfg.Auth.SessionExpiryDays != 7 {
+		t.Errorf("Expected session_expiry_days 7, got %d", cfg.Auth.SessionExpiryDays)
+	}
+	if cfg.Auth.LockoutThreshold != 5 {
+		t.Errorf("Expected lockout_threshold 5, got %d", cfg.Auth.LockoutThreshold)
+	}
+	if cfg.Auth.LockoutDurationMinutes != 15 {
+		t.Errorf("Expected lockout_duration_minutes 15, got %d", cfg.Auth.LockoutDurationMinutes)
+	}
+}
+
+func TestEnvOverrides_UserModeAndAuth(t *testing.T) {
+	// Create a temporary directory for testing
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	// Set environment variables
+	os.Setenv("NOODEXX_USER_MODE", "multi")
+	os.Setenv("NOODEXX_AUTH_PROVIDER", "mfa")
+	defer func() {
+		os.Unsetenv("NOODEXX_USER_MODE")
+		os.Unsetenv("NOODEXX_AUTH_PROVIDER")
+	}()
+
+	// Load config
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+
+	// Verify environment overrides
+	if cfg.UserMode != "multi" {
+		t.Errorf("Expected user_mode 'multi', got '%s'", cfg.UserMode)
+	}
+	if cfg.Auth.Provider != "mfa" {
+		t.Errorf("Expected auth provider 'mfa', got '%s'", cfg.Auth.Provider)
+	}
+}
+
+func TestValidate_UserMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		userMode    string
+		expectError bool
+	}{
+		{"Valid single mode", "single", false},
+		{"Valid multi mode", "multi", false},
+		{"Invalid mode", "invalid", true},
+		{"Empty mode", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				Provider: ProviderConfig{
+					Type:           "ollama",
+					OllamaEndpoint: "http://localhost:11434",
+				},
+				Privacy:    PrivacyConfig{Enabled: true},
+				Logging:    LoggingConfig{Level: "info"},
+				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
+				Server:     ServerConfig{Port: 8080},
+				UserMode:   tt.userMode,
+				Auth: AuthConfig{
+					Provider:               "userpass",
+					SessionExpiryDays:      7,
+					LockoutThreshold:       5,
+					LockoutDurationMinutes: 15,
+				},
+			}
+
+			err := cfg.Validate()
+			if tt.expectError && err == nil {
+				t.Error("Expected validation error, got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidate_AuthProvider(t *testing.T) {
+	tests := []struct {
+		name        string
+		provider    string
+		expectError bool
+	}{
+		{"Valid userpass provider", "userpass", false},
+		{"Valid mfa provider", "mfa", false},
+		{"Valid sso provider", "sso", false},
+		{"Invalid provider", "invalid", true},
+		{"Empty provider", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				Provider: ProviderConfig{
+					Type:           "ollama",
+					OllamaEndpoint: "http://localhost:11434",
+				},
+				Privacy:    PrivacyConfig{Enabled: true},
+				Logging:    LoggingConfig{Level: "info"},
+				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
+				Server:     ServerConfig{Port: 8080},
+				UserMode:   "single",
+				Auth: AuthConfig{
+					Provider:               tt.provider,
+					SessionExpiryDays:      7,
+					LockoutThreshold:       5,
+					LockoutDurationMinutes: 15,
+				},
 			}
 
 			err := cfg.Validate()

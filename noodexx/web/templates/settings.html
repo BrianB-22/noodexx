@@ -240,16 +240,213 @@
                 <small class="form-hint">Number of files to process simultaneously</small>
             </div>
         </section>
+
+        <!-- User Profile Section (Multi-User Mode) -->
+        {{if .UserMode}}
+        {{if eq .UserMode "multi"}}
+        <section class="settings-section">
+            <div class="section-header">
+                <h2>User Profile</h2>
+                <p class="section-description">Manage your account settings and profile information.</p>
+            </div>
+
+            <div class="user-profile-info">
+                <div class="profile-field">
+                    <label>Username</label>
+                    <div class="profile-value">{{.CurrentUser.Username}}</div>
+                </div>
+                <div class="profile-field">
+                    <label>Email</label>
+                    <div class="profile-value">{{.CurrentUser.Email}}</div>
+                </div>
+                <div class="profile-field">
+                    <label>Account Type</label>
+                    <div class="profile-value">
+                        {{if .CurrentUser.IsAdmin}}
+                        <span class="badge badge-admin">Administrator</span>
+                        {{else}}
+                        <span class="badge badge-user">User</span>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <button type="button" class="btn-secondary" onclick="showChangePasswordModal()">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"/>
+                    </svg>
+                    Change Password
+                </button>
+                <button type="button" class="btn-secondary" onclick="logout()">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"/>
+                    </svg>
+                    Logout
+                </button>
+            </div>
+        </section>
+        {{end}}
+        {{end}}
+
+        <!-- User Management Section (Admin Only) -->
+        {{if .UserMode}}
+        {{if eq .UserMode "multi"}}
+        {{if .CurrentUser.IsAdmin}}
+        <section class="settings-section">
+            <div class="section-header">
+                <h2>User Management</h2>
+                <p class="section-description">Manage user accounts and permissions.</p>
+            </div>
+
+            <div class="user-management-controls">
+                <button type="button" class="btn-primary" onclick="showCreateUserModal()">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"/>
+                    </svg>
+                    Create User
+                </button>
+            </div>
+
+            <div id="usersList" class="users-table-container">
+                <!-- Users table will be loaded here -->
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <p>Loading users...</p>
+                </div>
+            </div>
+        </section>
+        {{end}}
+        {{end}}
+        {{end}}
     </form>
+</div>
+
+<!-- Create/Edit User Modal -->
+<div id="userModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeUserModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="userModalTitle">Create User</h2>
+            <button class="modal-close" onclick="closeUserModal()">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                </svg>
+            </button>
+        </div>
+        <form id="userForm" class="modal-form">
+            <input type="hidden" id="userId" name="user_id">
+            
+            <div class="form-group">
+                <label for="modalUsername">Username</label>
+                <input type="text" id="modalUsername" name="username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="modalEmail">Email</label>
+                <input type="email" id="modalEmail" name="email" required>
+            </div>
+
+            <div class="form-group" id="passwordGroup">
+                <label for="modalPassword">Password</label>
+                <input type="password" id="modalPassword" name="password" minlength="8">
+                <small class="form-hint">Minimum 8 characters</small>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="modalIsAdmin" name="is_admin">
+                    <span>Administrator</span>
+                </label>
+            </div>
+
+            <div id="modalError" class="error-message hidden"></div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeUserModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="userFormSubmit">Create User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete User Confirmation Modal -->
+<div id="deleteUserModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeDeleteUserModal()"></div>
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Delete User</h2>
+            <button class="modal-close" onclick="closeDeleteUserModal()">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete user <strong id="deleteUsername"></strong>?</p>
+            <p class="text-warning">This action cannot be undone. All user data will be permanently deleted.</p>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn-secondary" onclick="closeDeleteUserModal()">Cancel</button>
+            <button type="button" class="btn-danger" onclick="confirmDeleteUser()">Delete User</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="resetPasswordModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeResetPasswordModal()"></div>
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Reset Password</h2>
+            <button class="modal-close" onclick="closeResetPasswordModal()">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>A temporary password will be generated for user <strong id="resetUsername"></strong>.</p>
+            <p>The user will be required to change their password on next login.</p>
+            <div id="tempPasswordDisplay" class="temp-password-box hidden">
+                <label>Temporary Password:</label>
+                <div class="temp-password">
+                    <code id="tempPassword"></code>
+                    <button type="button" class="btn-icon" onclick="copyTempPassword()" title="Copy to clipboard">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+                            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+                        </svg>
+                    </button>
+                </div>
+                <small class="form-hint">Make sure to save this password. It will not be shown again.</small>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn-secondary" onclick="closeResetPasswordModal()">Close</button>
+            <button type="button" class="btn-primary" id="resetPasswordButton" onclick="confirmResetPassword()">Generate Password</button>
+        </div>
+    </div>
 </div>
 
 <script>
 // Track watched folders in memory
 let watchedFolders = [{{range $index, $folder := .Config.Folders}}{{if $index}},{{end}}"{{$folder}}"{{end}}];
+let deleteUserIdPending = null;
+let resetUserIdPending = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     updateProviderFields();
+    
+    // Load users list if in multi-user mode and user is admin
+    {{if .UserMode}}
+    {{if eq .UserMode "multi"}}
+    {{if .CurrentUser.IsAdmin}}
+    loadUsersList();
+    {{end}}
+    {{end}}
+    {{end}}
 });
 
 // Update provider-specific fields visibility
@@ -312,26 +509,18 @@ function addFolder() {
     const path = input.value.trim();
     
     if (!path) {
-        if (typeof showToast === 'function') {
-            showToast('Please enter a folder path', 'error');
-        }
+        alert('Please enter a folder path');
         return;
     }
     
     if (watchedFolders.includes(path)) {
-        if (typeof showToast === 'function') {
-            showToast('Folder is already in the watch list', 'error');
-        }
+        alert('Folder is already in the watch list');
         return;
     }
     
     watchedFolders.push(path);
     input.value = '';
     renderWatchedFolders();
-    
-    if (typeof showToast === 'function') {
-        showToast('Folder added to watch list', 'success');
-    }
 }
 
 // Remove a watched folder
@@ -339,10 +528,6 @@ function removeFolder(index) {
     if (confirm('Remove this folder from the watch list?')) {
         watchedFolders.splice(index, 1);
         renderWatchedFolders();
-        
-        if (typeof showToast === 'function') {
-            showToast('Folder removed from watch list', 'info');
-        }
     }
 }
 
@@ -379,11 +564,6 @@ async function testConnection() {
     const providerType = document.getElementById('providerType').value;
     const formData = new FormData(document.getElementById('settingsForm'));
     
-    // Show loading state
-    if (typeof showToast === 'function') {
-        showToast('Testing connection...', 'info');
-    }
-    
     try {
         const response = await fetch('/api/test-connection', {
             method: 'POST',
@@ -393,19 +573,13 @@ async function testConnection() {
         const result = await response.json();
         
         if (response.ok && result.success) {
-            if (typeof showToast === 'function') {
-                showToast('Connection successful!', 'success');
-            }
+            alert('Connection successful!');
         } else {
-            if (typeof showToast === 'function') {
-                showToast(result.error || 'Connection test failed', 'error');
-            }
+            alert('Connection failed: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Connection test failed:', error);
-        if (typeof showToast === 'function') {
-            showToast('Connection test failed: ' + error.message, 'error');
-        }
+        alert('Connection test failed: ' + error.message);
     }
 }
 
@@ -419,34 +593,384 @@ async function saveSettings() {
         formData.append('folders', folder);
     });
     
-    // Show loading state
-    if (typeof showToast === 'function') {
-        showToast('Saving settings...', 'info');
+    // Convert FormData to URLSearchParams for proper form encoding
+    const params = new URLSearchParams();
+    for (const [key, value] of formData.entries()) {
+        params.append(key, value);
     }
     
     try {
         const response = await fetch('/api/settings', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params.toString()
         });
         
         const result = await response.json();
         
         if (response.ok && result.success) {
-            if (typeof showToast === 'function') {
-                showToast('Settings saved successfully! Restart may be required for some changes.', 'success');
-            }
+            alert('Settings saved successfully! Some changes may require a restart.');
         } else {
-            if (typeof showToast === 'function') {
-                showToast(result.error || 'Failed to save settings', 'error');
-            }
+            alert('Failed to save settings: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Failed to save settings:', error);
+        alert('Failed to save settings: ' + error.message);
+    }
+}
+
+// User Management Functions
+
+// Load users list
+async function loadUsersList() {
+    const container = document.getElementById('usersList');
+    if (!container) return;
+    
+    try {
+        const response = await fetch('/api/users');
+        const users = await response.json();
+        
+        if (response.ok) {
+            renderUsersTable(users);
+        } else {
+            container.innerHTML = '<div class="error-state"><p>Failed to load users</p></div>';
+        }
+    } catch (error) {
+        console.error('Failed to load users:', error);
+        container.innerHTML = '<div class="error-state"><p>Failed to load users</p></div>';
+    }
+}
+
+// Render users table
+function renderUsersTable(users) {
+    const container = document.getElementById('usersList');
+    if (!container) return;
+    
+    if (users.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No users found</p></div>';
+        return;
+    }
+    
+    const table = `
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Last Login</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${users.map(user => `
+                    <tr>
+                        <td>${escapeHtml(user.username)}</td>
+                        <td>${escapeHtml(user.email || '-')}</td>
+                        <td>
+                            ${user.is_admin ? '<span class="badge badge-admin">Admin</span>' : '<span class="badge badge-user">User</span>'}
+                        </td>
+                        <td>${formatDate(user.created_at)}</td>
+                        <td>${user.last_login ? formatDate(user.last_login) : 'Never'}</td>
+                        <td class="actions-cell">
+                            <button class="btn-icon" onclick="editUser(${user.id})" title="Edit user">
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" onclick="showResetPasswordModal(${user.id}, '${escapeHtml(user.username)}')" title="Reset password">
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon btn-danger" onclick="showDeleteUserModal(${user.id}, '${escapeHtml(user.username)}')" title="Delete user">
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"/>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    
+    container.innerHTML = table;
+}
+
+// Show create user modal
+function showCreateUserModal() {
+    const modal = document.getElementById('userModal');
+    const form = document.getElementById('userForm');
+    const title = document.getElementById('userModalTitle');
+    const submitBtn = document.getElementById('userFormSubmit');
+    const passwordGroup = document.getElementById('passwordGroup');
+    
+    // Reset form
+    form.reset();
+    document.getElementById('userId').value = '';
+    document.getElementById('modalError').classList.add('hidden');
+    
+    // Set create mode
+    title.textContent = 'Create User';
+    submitBtn.textContent = 'Create User';
+    passwordGroup.style.display = 'block';
+    document.getElementById('modalPassword').required = true;
+    
+    modal.classList.remove('hidden');
+}
+
+// Edit user
+async function editUser(userId) {
+    try {
+        const response = await fetch(`/api/users/${userId}`);
+        const user = await response.json();
+        
+        if (response.ok) {
+            const modal = document.getElementById('userModal');
+            const form = document.getElementById('userForm');
+            const title = document.getElementById('userModalTitle');
+            const submitBtn = document.getElementById('userFormSubmit');
+            const passwordGroup = document.getElementById('passwordGroup');
+            
+            // Populate form
+            document.getElementById('userId').value = user.id;
+            document.getElementById('modalUsername').value = user.username;
+            document.getElementById('modalEmail').value = user.email || '';
+            document.getElementById('modalIsAdmin').checked = user.is_admin;
+            document.getElementById('modalError').classList.add('hidden');
+            
+            // Set edit mode
+            title.textContent = 'Edit User';
+            submitBtn.textContent = 'Update User';
+            passwordGroup.style.display = 'none';
+            document.getElementById('modalPassword').required = false;
+            
+            modal.classList.remove('hidden');
+        } else {
+            if (typeof showToast === 'function') {
+                showToast('Failed to load user details', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load user:', error);
         if (typeof showToast === 'function') {
-            showToast('Failed to save settings: ' + error.message, 'error');
+            showToast('Failed to load user details', 'error');
         }
     }
+}
+
+// Close user modal
+function closeUserModal() {
+    document.getElementById('userModal').classList.add('hidden');
+}
+
+// Handle user form submission
+document.getElementById('userForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const userId = document.getElementById('userId').value;
+    const username = document.getElementById('modalUsername').value.trim();
+    const email = document.getElementById('modalEmail').value.trim();
+    const password = document.getElementById('modalPassword').value;
+    const isAdmin = document.getElementById('modalIsAdmin').checked;
+    const errorDiv = document.getElementById('modalError');
+    
+    errorDiv.classList.add('hidden');
+    
+    const isEdit = userId !== '';
+    const url = isEdit ? `/api/users/${userId}` : '/api/users';
+    const method = isEdit ? 'PUT' : 'POST';
+    
+    const body = {
+        username: username,
+        email: email,
+        is_admin: isAdmin
+    };
+    
+    if (!isEdit) {
+        body.password = password;
+    }
+    
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            if (typeof showToast === 'function') {
+                showToast(isEdit ? 'User updated successfully' : 'User created successfully', 'success');
+            }
+            closeUserModal();
+            loadUsersList();
+        } else {
+            errorDiv.textContent = result.error || 'Failed to save user';
+            errorDiv.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Failed to save user:', error);
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+    }
+});
+
+// Show delete user modal
+function showDeleteUserModal(userId, username) {
+    deleteUserIdPending = userId;
+    document.getElementById('deleteUsername').textContent = username;
+    document.getElementById('deleteUserModal').classList.remove('hidden');
+}
+
+// Close delete user modal
+function closeDeleteUserModal() {
+    deleteUserIdPending = null;
+    document.getElementById('deleteUserModal').classList.add('hidden');
+}
+
+// Confirm delete user
+async function confirmDeleteUser() {
+    if (!deleteUserIdPending) return;
+    
+    try {
+        const response = await fetch(`/api/users/${deleteUserIdPending}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            if (typeof showToast === 'function') {
+                showToast('User deleted successfully', 'success');
+            }
+            closeDeleteUserModal();
+            loadUsersList();
+        } else {
+            const result = await response.json();
+            if (typeof showToast === 'function') {
+                showToast(result.error || 'Failed to delete user', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to delete user:', error);
+        if (typeof showToast === 'function') {
+            showToast('Failed to delete user', 'error');
+        }
+    }
+}
+
+// Show reset password modal
+function showResetPasswordModal(userId, username) {
+    resetUserIdPending = userId;
+    document.getElementById('resetUsername').textContent = username;
+    document.getElementById('tempPasswordDisplay').classList.add('hidden');
+    document.getElementById('resetPasswordButton').style.display = 'block';
+    document.getElementById('resetPasswordModal').classList.remove('hidden');
+}
+
+// Close reset password modal
+function closeResetPasswordModal() {
+    resetUserIdPending = null;
+    document.getElementById('resetPasswordModal').classList.add('hidden');
+}
+
+// Confirm reset password
+async function confirmResetPassword() {
+    if (!resetUserIdPending) return;
+    
+    const button = document.getElementById('resetPasswordButton');
+    button.disabled = true;
+    button.textContent = 'Generating...';
+    
+    try {
+        const response = await fetch(`/api/users/${resetUserIdPending}/reset-password`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Display temporary password
+            document.getElementById('tempPassword').textContent = result.temporary_password;
+            document.getElementById('tempPasswordDisplay').classList.remove('hidden');
+            button.style.display = 'none';
+            
+            if (typeof showToast === 'function') {
+                showToast('Password reset successfully', 'success');
+            }
+        } else {
+            if (typeof showToast === 'function') {
+                showToast(result.error || 'Failed to reset password', 'error');
+            }
+            closeResetPasswordModal();
+        }
+    } catch (error) {
+        console.error('Failed to reset password:', error);
+        if (typeof showToast === 'function') {
+            showToast('Failed to reset password', 'error');
+        }
+        closeResetPasswordModal();
+    } finally {
+        button.disabled = false;
+        button.textContent = 'Generate Password';
+    }
+}
+
+// Copy temporary password to clipboard
+function copyTempPassword() {
+    const password = document.getElementById('tempPassword').textContent;
+    navigator.clipboard.writeText(password).then(() => {
+        if (typeof showToast === 'function') {
+            showToast('Password copied to clipboard', 'success');
+        }
+    }).catch(err => {
+        console.error('Failed to copy password:', err);
+    });
+}
+
+// Show change password modal (for current user)
+function showChangePasswordModal() {
+    window.location.href = '/change-password';
+}
+
+// Logout
+async function logout() {
+    try {
+        const response = await fetch('/api/logout', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            window.location.href = '/login';
+        } else {
+            if (typeof showToast === 'function') {
+                showToast('Failed to logout', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+        if (typeof showToast === 'function') {
+            showToast('Failed to logout', 'error');
+        }
+    }
+}
+
+// Utility functions
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 }
 </script>
 
@@ -625,6 +1149,7 @@ async function saveSettings() {
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--text);
+    flex: 1;
 }
 
 /* Checkbox Label */
@@ -756,6 +1281,272 @@ async function saveSettings() {
     }
     
     .input-with-button button {
+        width: 100%;
+    }
+}
+
+/* User Profile Styles */
+.user-profile-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.profile-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.profile-field label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.profile-value {
+    font-size: 0.875rem;
+    color: var(--text);
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-admin {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.badge-user {
+    background: var(--border);
+    color: var(--text-secondary);
+}
+
+.profile-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* User Management Styles */
+.user-management-controls {
+    margin-bottom: 1.5rem;
+}
+
+.users-table-container {
+    overflow-x: auto;
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.users-table thead {
+    background: var(--background);
+    border-bottom: 2px solid var(--border);
+}
+
+.users-table th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.users-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+}
+
+.users-table tbody tr:hover {
+    background: var(--background);
+}
+
+.actions-cell {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.btn-danger {
+    color: var(--error);
+}
+
+.btn-danger:hover {
+    background: var(--error-light);
+}
+
+.loading-state,
+.error-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: relative;
+    background: var(--surface);
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-small {
+    max-width: 400px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    padding: 0.25rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.2s;
+}
+
+.modal-close:hover {
+    color: var(--text);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-body p {
+    margin: 0 0 1rem;
+    color: var(--text);
+}
+
+.modal-body p:last-child {
+    margin-bottom: 0;
+}
+
+.text-warning {
+    color: var(--warning);
+    font-size: 0.875rem;
+}
+
+.modal-form {
+    padding: 1.5rem;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border);
+}
+
+.temp-password-box {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.temp-password-box label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.temp-password {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.temp-password code {
+    flex: 1;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 0.875rem;
+    color: var(--primary);
+    word-break: break-all;
+}
+
+@media (max-width: 768px) {
+    .modal-content {
+        max-width: 100%;
+    }
+    
+    .users-table {
+        font-size: 0.75rem;
+    }
+    
+    .users-table th,
+    .users-table td {
+        padding: 0.5rem;
+    }
+    
+    .profile-actions {
+        flex-direction: column;
+    }
+    
+    .profile-actions button {
         width: 100%;
     }
 }

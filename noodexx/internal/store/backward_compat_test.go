@@ -54,7 +54,7 @@ func TestBackwardCompatibilityWithPhase1(t *testing.T) {
 	db.Close()
 
 	// Step 2: Open with Phase 2 Store (this should run migrations)
-	store, err := NewStore(tmpFile)
+	store, err := NewStore(tmpFile, "single")
 	if err != nil {
 		t.Fatalf("Failed to open Phase 2 store: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestBackwardCompatibilityWithPhase1(t *testing.T) {
 	// Step 4: Verify new columns exist and can be used
 	t.Run("New columns exist", func(t *testing.T) {
 		// Try to save a chunk with tags and summary
-		err := store.SaveChunk(ctx, "phase2-doc.txt", "Phase 2 content",
+		err := store.SaveChunk(ctx, 1, "phase2-doc.txt", "Phase 2 content",
 			[]float32{0.6, 0.7, 0.8, 0.9, 1.0},
 			[]string{"test", "phase2"},
 			"This is a Phase 2 document with tags and summary")
@@ -147,7 +147,7 @@ func TestBackwardCompatibilityWithPhase1(t *testing.T) {
 		}
 
 		// Test watched_folders table
-		err = store.AddWatchedFolder(ctx, "/test/path")
+		err = store.AddWatchedFolder(ctx, 1, "/test/path")
 		if err != nil {
 			t.Fatalf("Failed to add watched folder: %v", err)
 		}
@@ -197,13 +197,13 @@ func TestMigrationIdempotency(t *testing.T) {
 
 	// Create and close store multiple times
 	for i := 0; i < 3; i++ {
-		store, err := NewStore(tmpFile)
+		store, err := NewStore(tmpFile, "single")
 		if err != nil {
 			t.Fatalf("Failed to create store on iteration %d: %v", i, err)
 		}
 
 		// Add some data
-		err = store.SaveChunk(ctx, "test-source", "test text",
+		err = store.SaveChunk(ctx, 1, "test-source", "test text",
 			[]float32{0.1, 0.2, 0.3}, nil, "")
 		if err != nil {
 			t.Fatalf("Failed to save chunk on iteration %d: %v", i, err)
@@ -213,7 +213,7 @@ func TestMigrationIdempotency(t *testing.T) {
 	}
 
 	// Verify data is correct
-	store, err := NewStore(tmpFile)
+	store, err := NewStore(tmpFile, "single")
 	if err != nil {
 		t.Fatalf("Failed to open final store: %v", err)
 	}

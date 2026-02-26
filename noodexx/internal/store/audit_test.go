@@ -17,7 +17,7 @@ func TestAddAuditEntry(t *testing.T) {
 	tmpFile.Close()
 
 	// Initialize store
-	store, err := NewStore(tmpFile.Name())
+	store, err := NewStore(tmpFile.Name(), "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestGetAuditLog(t *testing.T) {
 	tmpFile.Close()
 
 	// Initialize store
-	store, err := NewStore(tmpFile.Name())
+	store, err := NewStore(tmpFile.Name(), "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestGetAuditLogFields(t *testing.T) {
 	tmpFile.Close()
 
 	// Initialize store
-	store, err := NewStore(tmpFile.Name())
+	store, err := NewStore(tmpFile.Name(), "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestAuditLogConcurrency(t *testing.T) {
 	tmpFile.Close()
 
 	// Initialize store
-	store, err := NewStore(tmpFile.Name())
+	store, err := NewStore(tmpFile.Name(), "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}

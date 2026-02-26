@@ -28,7 +28,8 @@ type Message struct {
 
 // Store interface for saving chunks
 type Store interface {
-	SaveChunk(ctx context.Context, source, text string, embedding []float32, tags []string, summary string) error
+	SaveChunk(ctx context.Context, userID int64, source, text string, embedding []float32, tags []string, summary string) error
+	DeleteChunksBySource(ctx context.Context, userID int64, source string) error
 }
 
 // Chunker interface for text chunking
@@ -63,13 +64,19 @@ func NewIngester(provider LLMProvider, store Store, chunker Chunker, privacyMode
 }
 
 // IngestText processes plain text with chunking, embedding, and storage
-func (ing *Ingester) IngestText(ctx context.Context, source, text string, tags []string) error {
+func (ing *Ingester) IngestText(ctx context.Context, userID int64, source, text string, tags []string) error {
 	logger := ing.logger.WithFields(map[string]interface{}{
 		"source":     source,
 		"text_size":  len(text),
 		"tags_count": len(tags),
 	})
 	logger.Debug("starting text ingestion")
+
+	// Delete existing chunks for this source (replace behavior)
+	if err := ing.store.DeleteChunksBySource(ctx, userID, source); err != nil {
+		logger.WithContext("error", err.Error()).Warn("failed to delete existing chunks")
+		// Don't fail ingestion if delete fails - continue with ingestion
+	}
 
 	// Check guardrails
 	if err := ing.guardrails.Check(source, text); err != nil {
@@ -110,7 +117,7 @@ func (ing *Ingester) IngestText(ctx context.Context, source, text string, tags [
 			return fmt.Errorf("embedding failed: %w", err)
 		}
 
-		if err := ing.store.SaveChunk(ctx, source, chunk, embedding, tags, summary); err != nil {
+		if err := ing.store.SaveChunk(ctx, userID, source, chunk, embedding, tags, summary); err != nil {
 			logger.WithFields(map[string]interface{}{
 				"chunk_index": i,
 				"error":       err.Error(),
@@ -128,7 +135,7 @@ func (ing *Ingester) IngestText(ctx context.Context, source, text string, tags [
 }
 
 // IngestURL fetches and processes a web page
-func (ing *Ingester) IngestURL(ctx context.Context, urlStr string, tags []string) error {
+func (ing *Ingester) IngestURL(ctx context.Context, userID int64, urlStr string, tags []string) error {
 	logger := ing.logger.WithContext("url", urlStr)
 	logger.Debug("starting URL ingestion")
 
@@ -160,11 +167,11 @@ func (ing *Ingester) IngestURL(ctx context.Context, urlStr string, tags []string
 	}
 
 	logger.WithContext("text_size", len(article.TextContent)).Debug("URL content fetched and parsed")
-	return ing.IngestText(ctx, urlStr, article.TextContent, tags)
+	return ing.IngestText(ctx, userID, urlStr, article.TextContent, tags)
 }
 
 // IngestFile processes an uploaded file based on MIME type
-func (ing *Ingester) IngestFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, tags []string) error {
+func (ing *Ingester) IngestFile(ctx context.Context, userID int64, file multipart.File, header *multipart.FileHeader, tags []string) error {
 	logger := ing.logger.WithFields(map[string]interface{}{
 		"file_path": header.Filename,
 		"file_size": header.Size,
@@ -206,7 +213,7 @@ func (ing *Ingester) IngestFile(ctx context.Context, file multipart.File, header
 	}
 
 	logger.WithContext("text_size", len(text)).Debug("file parsed successfully")
-	return ing.IngestText(ctx, header.Filename, text, tags)
+	return ing.IngestText(ctx, userID, header.Filename, text, tags)
 }
 
 // parseText reads plain text from a reader

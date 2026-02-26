@@ -12,7 +12,7 @@ func TestMigrations(t *testing.T) {
 	defer os.Remove(tmpFile)
 
 	// Create a new store (this will run migrations)
-	store, err := NewStore(tmpFile)
+	store, err := NewStore(tmpFile, "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -84,7 +84,97 @@ func TestMigrations(t *testing.T) {
 		}
 	})
 
-	// Test 5: Verify indexes exist
+	// Test 5: Verify users table exists (Phase 4)
+	t.Run("users table exists", func(t *testing.T) {
+		var count int
+		err := store.db.QueryRowContext(ctx, `
+			SELECT COUNT(*) 
+			FROM pragma_table_info('users') 
+			WHERE name IN ('id', 'username', 'password_hash', 'email', 'is_admin', 'must_change_password', 'created_at', 'last_login')
+		`).Scan(&count)
+		if err != nil {
+			t.Fatalf("Failed to query users table info: %v", err)
+		}
+		if count != 8 {
+			t.Errorf("Expected 8 columns in users table, got %d", count)
+		}
+	})
+
+	// Test 6: Verify username unique constraint
+	t.Run("username unique constraint", func(t *testing.T) {
+		// Insert a test user
+		_, err := store.db.ExecContext(ctx, `
+			INSERT INTO users (username, password_hash, email, is_admin, must_change_password)
+			VALUES ('testuser', 'hash123', 'test@example.com', 0, 0)
+		`)
+		if err != nil {
+			t.Fatalf("Failed to insert test user: %v", err)
+		}
+
+		// Try to insert duplicate username
+		_, err = store.db.ExecContext(ctx, `
+			INSERT INTO users (username, password_hash, email, is_admin, must_change_password)
+			VALUES ('testuser', 'hash456', 'test2@example.com', 0, 0)
+		`)
+		if err == nil {
+			t.Error("Expected error when inserting duplicate username, got nil")
+		}
+	})
+
+	// Test 7: Verify email unique constraint
+	t.Run("email unique constraint", func(t *testing.T) {
+		// Insert a test user with unique username
+		_, err := store.db.ExecContext(ctx, `
+			INSERT INTO users (username, password_hash, email, is_admin, must_change_password)
+			VALUES ('testuser2', 'hash789', 'unique@example.com', 0, 0)
+		`)
+		if err != nil {
+			t.Fatalf("Failed to insert test user: %v", err)
+		}
+
+		// Try to insert duplicate email
+		_, err = store.db.ExecContext(ctx, `
+			INSERT INTO users (username, password_hash, email, is_admin, must_change_password)
+			VALUES ('testuser3', 'hash000', 'unique@example.com', 0, 0)
+		`)
+		if err == nil {
+			t.Error("Expected error when inserting duplicate email, got nil")
+		}
+	})
+
+	// Test 8: Verify session_tokens table exists (Phase 4)
+	t.Run("session_tokens table exists", func(t *testing.T) {
+		var count int
+		err := store.db.QueryRowContext(ctx, `
+			SELECT COUNT(*) 
+			FROM pragma_table_info('session_tokens') 
+			WHERE name IN ('token', 'user_id', 'created_at', 'expires_at')
+		`).Scan(&count)
+		if err != nil {
+			t.Fatalf("Failed to query session_tokens table info: %v", err)
+		}
+		if count != 4 {
+			t.Errorf("Expected 4 columns in session_tokens table, got %d", count)
+		}
+	})
+
+	// Test 9: Verify failed_logins table exists (Phase 4)
+	t.Run("failed_logins table exists", func(t *testing.T) {
+		var count int
+		err := store.db.QueryRowContext(ctx, `
+			SELECT COUNT(*) 
+			FROM pragma_table_info('failed_logins') 
+			WHERE name IN ('id', 'username', 'attempted_at')
+		`).Scan(&count)
+		if err != nil {
+			t.Fatalf("Failed to query failed_logins table info: %v", err)
+		}
+		if count != 3 {
+			t.Errorf("Expected 3 columns in failed_logins table, got %d", count)
+		}
+	})
+
+	// Test 10: Verify indexes exist
 	t.Run("indexes exist", func(t *testing.T) {
 		expectedIndexes := []string{
 			"idx_chunks_source",
@@ -118,7 +208,7 @@ func TestMigrationsPreserveData(t *testing.T) {
 	defer os.Remove(tmpFile)
 
 	// Create initial store with Phase 1 schema
-	store1, err := NewStore(tmpFile)
+	store1, err := NewStore(tmpFile, "single")
 	if err != nil {
 		t.Fatalf("Failed to create initial store: %v", err)
 	}
@@ -127,7 +217,7 @@ func TestMigrationsPreserveData(t *testing.T) {
 
 	// Insert test data
 	testEmbedding := []float32{0.1, 0.2, 0.3, 0.4}
-	err = store1.SaveChunk(ctx, "test-source", "test text", testEmbedding, nil, "")
+	err = store1.SaveChunk(ctx, 1, "test-source", "test text", testEmbedding, nil, "")
 	if err != nil {
 		t.Fatalf("Failed to save test chunk: %v", err)
 	}
@@ -135,7 +225,7 @@ func TestMigrationsPreserveData(t *testing.T) {
 	store1.Close()
 
 	// Reopen the store (migrations should run again but preserve data)
-	store2, err := NewStore(tmpFile)
+	store2, err := NewStore(tmpFile, "single")
 	if err != nil {
 		t.Fatalf("Failed to reopen store: %v", err)
 	}

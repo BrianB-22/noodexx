@@ -18,7 +18,7 @@ func TestChatHistoryOperations(t *testing.T) {
 	tmpFile.Close()
 
 	// Initialize store
-	store, err := NewStore(tmpFile.Name())
+	store, err := NewStore(tmpFile.Name(), "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}

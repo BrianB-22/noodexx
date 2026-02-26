@@ -13,7 +13,7 @@ func TestChunkOperations(t *testing.T) {
 	defer os.Remove(tmpFile)
 
 	// Create a new store
-	store, err := NewStore(tmpFile)
+	store, err := NewStore(tmpFile, "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -29,19 +29,19 @@ func TestChunkOperations(t *testing.T) {
 		tags := []string{"tag1", "tag2"}
 		summary := "Summary of document1"
 
-		err := store.SaveChunk(ctx, source, text, embedding, tags, summary)
+		err := store.SaveChunk(ctx, 1, source, text, embedding, tags, summary)
 		if err != nil {
 			t.Fatalf("SaveChunk failed: %v", err)
 		}
 
 		// Save another chunk for the same source
-		err = store.SaveChunk(ctx, source, "Second chunk", embedding, tags, summary)
+		err = store.SaveChunk(ctx, 1, source, "Second chunk", embedding, tags, summary)
 		if err != nil {
 			t.Fatalf("SaveChunk failed for second chunk: %v", err)
 		}
 
 		// Save a chunk for a different source
-		err = store.SaveChunk(ctx, "document2.txt", "Different document", []float32{0.9, 0.8, 0.7, 0.6, 0.5}, []string{"tag3"}, "Summary of document2")
+		err = store.SaveChunk(ctx, 1, "document2.txt", "Different document", []float32{0.9, 0.8, 0.7, 0.6, 0.5}, []string{"tag3"}, "Summary of document2")
 		if err != nil {
 			t.Fatalf("SaveChunk failed for different source: %v", err)
 		}
@@ -136,7 +136,7 @@ func TestChunkOperations(t *testing.T) {
 	// Test 4: DeleteSource removes all chunks
 	t.Run("DeleteSource", func(t *testing.T) {
 		// Delete document1
-		err := store.DeleteSource(ctx, "document1.txt")
+		err := store.DeleteChunksBySource(ctx, 1, "document1.txt")
 		if err != nil {
 			t.Fatalf("DeleteSource failed: %v", err)
 		}

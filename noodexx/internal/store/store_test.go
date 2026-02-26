@@ -12,7 +12,7 @@ func TestNewStore(t *testing.T) {
 	defer os.Remove(tmpFile)
 
 	// Create a new store
-	store, err := NewStore(tmpFile)
+	store, err := NewStore(tmpFile, "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestStoreClose(t *testing.T) {
 	defer os.Remove(tmpFile)
 
 	// Create a new store
-	store, err := NewStore(tmpFile)
+	store, err := NewStore(tmpFile, "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestSaveAndSearchChunk(t *testing.T) {
 	defer os.Remove(tmpFile)
 
 	// Create a new store
-	store, err := NewStore(tmpFile)
+	store, err := NewStore(tmpFile, "single")
 	if err != nil {
 		t.Fatalf("Failed to create store: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestSaveAndSearchChunk(t *testing.T) {
 	tags := []string{"test", "example"}
 	summary := "Test summary"
 
-	err = store.SaveChunk(ctx, source, text, embedding, tags, summary)
+	err = store.SaveChunk(ctx, 1, source, text, embedding, tags, summary)
 	if err != nil {
 		t.Fatalf("Failed to save chunk: %v", err)
 	}

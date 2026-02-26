@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"noodexx/internal/logging"
@@ -11,6 +12,7 @@ import (
 
 // Skill represents a loaded skill with its metadata and configuration
 type Skill struct {
+	UserID      int64 // Owner of the skill (set when loaded via LoadForUser)
 	Name        string
 	Version     string
 	Description string
@@ -40,11 +42,27 @@ type Metadata struct {
 	RequiresNet    bool                   `json:"requires_network"`
 }
 
+// Store interface for accessing user skills from database
+type Store interface {
+	GetUserSkills(ctx context.Context, userID int64) ([]SkillMetadata, error)
+}
+
+// SkillMetadata represents skill metadata from the database
+type SkillMetadata struct {
+	ID        int64
+	UserID    int64
+	Name      string
+	Path      string
+	Enabled   bool
+	CreatedAt time.Time
+}
+
 // Loader discovers and loads skills
 type Loader struct {
 	skillsDir   string
 	privacyMode bool
 	logger      *logging.Logger
+	store       Store
 }
 
 // NewLoader creates a skill loader
@@ -53,6 +71,17 @@ func NewLoader(skillsDir string, privacyMode bool, logger *logging.Logger) *Load
 		skillsDir:   skillsDir,
 		privacyMode: privacyMode,
 		logger:      logger,
+		store:       nil, // For backward compatibility
+	}
+}
+
+// NewLoaderWithStore creates a skill loader with database store for user-scoped loading
+func NewLoaderWithStore(skillsDir string, privacyMode bool, logger *logging.Logger, store Store) *Loader {
+	return &Loader{
+		skillsDir:   skillsDir,
+		privacyMode: privacyMode,
+		logger:      logger,
+		store:       store,
 	}
 }
 
@@ -108,6 +137,83 @@ func (l *Loader) LoadAll() ([]*Skill, error) {
 	}
 
 	l.logger.WithContext("count", len(skills)).Debug("skills loaded")
+	return skills, nil
+}
+
+// LoadForUser loads skills for a specific user by querying the database
+// and loading only the enabled skills from the filesystem
+func (l *Loader) LoadForUser(ctx context.Context, userID int64) ([]*Skill, error) {
+	if l.store == nil {
+		// Fallback to LoadAll for backward compatibility
+		l.logger.Debug("store not configured, falling back to LoadAll")
+		return l.LoadAll()
+	}
+
+	l.logger.WithFields(map[string]interface{}{
+		"user_id":    userID,
+		"skills_dir": l.skillsDir,
+	}).Debug("loading skills for user")
+
+	// Get user's skills from database
+	userSkills, err := l.store.GetUserSkills(ctx, userID)
+	if err != nil {
+		l.logger.WithContext("error", err.Error()).Error("failed to get user skills from database")
+		return nil, fmt.Errorf("failed to get user skills: %w", err)
+	}
+
+	var skills []*Skill
+	for _, skillMeta := range userSkills {
+		// Skip disabled skills
+		if !skillMeta.Enabled {
+			l.logger.WithFields(map[string]interface{}{
+				"skill_name": skillMeta.Name,
+				"user_id":    userID,
+			}).Debug("skipping disabled skill")
+			continue
+		}
+
+		// Load the skill from filesystem
+		skillPath := filepath.Join(l.skillsDir, skillMeta.Path)
+
+		// Check if skill directory exists
+		if _, err := os.Stat(skillPath); os.IsNotExist(err) {
+			l.logger.WithFields(map[string]interface{}{
+				"skill_name": skillMeta.Name,
+				"path":       skillPath,
+			}).Warn("skill path does not exist")
+			continue
+		}
+
+		skill, err := l.loadSkill(skillPath)
+		if err != nil {
+			l.logger.WithFields(map[string]interface{}{
+				"skill_name": skillMeta.Name,
+				"path":       skillPath,
+				"error":      err.Error(),
+			}).Warn("failed to load skill")
+			continue
+		}
+
+		// Set the UserID from the metadata
+		skill.UserID = skillMeta.UserID
+
+		// Skip network-requiring skills in privacy mode
+		if l.privacyMode && skill.RequiresNet {
+			l.logger.WithFields(map[string]interface{}{
+				"skill_name": skill.Name,
+				"user_id":    userID,
+			}).Debug("skipping skill (requires network)")
+			continue
+		}
+
+		skills = append(skills, skill)
+	}
+
+	l.logger.WithFields(map[string]interface{}{
+		"user_id": userID,
+		"count":   len(skills),
+	}).Debug("skills loaded for user")
+
 	return skills, nil
 }
 

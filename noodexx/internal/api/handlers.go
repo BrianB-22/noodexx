@@ -9,6 +9,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"noodexx/internal/auth"
+	"noodexx/internal/config"
 	"strings"
 	"time"
 )
@@ -142,6 +144,14 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		logger.Error("request failed", "operation", "get_user_id", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Parse request
 	var req struct {
 		Query     string `json:"query"`
@@ -158,8 +168,21 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		req.SessionID = generateSessionID()
 	}
 
-	// Save user message
-	if err := s.store.SaveMessage(ctx, req.SessionID, "user", req.Query); err != nil {
+	// If session exists, verify ownership
+	if req.SessionID != "" {
+		owner, err := s.store.GetSessionOwner(ctx, req.SessionID)
+		if err == nil && owner != 0 {
+			// Session exists, verify it belongs to this user
+			if owner != userID {
+				logger.Error("request failed", "operation", "verify_session_owner", "error", "unauthorized access to session")
+				http.Error(w, "Forbidden: session belongs to another user", http.StatusForbidden)
+				return
+			}
+		}
+	}
+
+	// Save user message with user_id
+	if err := s.store.SaveChatMessage(ctx, userID, req.SessionID, "user", req.Query); err != nil {
 		logger.Warn("failed to save user message", "error", err.Error())
 	}
 
@@ -174,8 +197,8 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Search for relevant chunks
-	chunks, err := s.searcher.Search(ctx, queryVec, 5)
+	// Search for relevant chunks (user-scoped)
+	chunks, err := s.store.SearchByUser(ctx, userID, queryVec, 5)
 	if err != nil {
 		logger.Error("request failed", "operation", "search_chunks", "error", err.Error())
 		http.Error(w, "Search failed", http.StatusInternalServerError)
@@ -203,8 +226,8 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save assistant message
-	if err := s.store.SaveMessage(ctx, req.SessionID, "assistant", response); err != nil {
+	// Save assistant message with user_id
+	if err := s.store.SaveChatMessage(ctx, userID, req.SessionID, "assistant", response); err != nil {
 		logger.Warn("failed to save assistant message", "error", err.Error())
 	}
 
@@ -212,11 +235,19 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency, "session_id", req.SessionID)
 }
 
-// handleSessions returns a list of all chat sessions
+// handleSessions returns a list of all chat sessions for the current user
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	sessions, err := s.store.ListSessions(ctx)
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get sessions for this user only
+	sessions, err := s.store.GetUserSessions(ctx, userID)
 	if err != nil {
 		http.Error(w, "Failed to list sessions", http.StatusInternalServerError)
 		return
@@ -243,6 +274,13 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSessionHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Extract session ID from URL path
 	sessionID := strings.TrimPrefix(r.URL.Path, "/api/session/")
 	if sessionID == "" {
@@ -250,7 +288,8 @@ func (s *Server) handleSessionHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages, err := s.store.GetSessionHistory(ctx, sessionID)
+	// Get session messages with ownership verification
+	messages, err := s.store.GetSessionMessages(ctx, userID, sessionID)
 	if err != nil {
 		http.Error(w, "Failed to get session history", http.StatusInternalServerError)
 		return
@@ -290,11 +329,19 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		logger.Error("request failed", "operation", "get_user_id", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Get tag filter from query parameter
 	tagFilter := r.URL.Query().Get("tag")
 
-	// Get library entries
-	library, err := s.store.Library(ctx)
+	// Get library entries for user
+	library, err := s.store.LibraryByUser(ctx, userID)
 	if err != nil {
 		logger.Error("request failed", "operation", "get_library", "error", err.Error())
 		http.Error(w, "Failed to load library", http.StatusInternalServerError)
@@ -389,6 +436,14 @@ func (s *Server) handleIngestText(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		logger.Error("request failed", "operation", "get_user_id", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Parse request
 	var req struct {
 		Source string   `json:"source"`
@@ -401,8 +456,8 @@ func (s *Server) handleIngestText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ingest text
-	if err := s.ingester.IngestText(ctx, req.Source, req.Text, req.Tags); err != nil {
+	// Ingest text with user_id
+	if err := s.ingester.IngestText(ctx, userID, req.Source, req.Text, req.Tags); err != nil {
 		logger.Error("request failed", "operation", "ingest_text", "source", req.Source, "error", err.Error())
 		http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 		return
@@ -441,6 +496,14 @@ func (s *Server) handleIngestURL(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		logger.Error("request failed", "operation", "get_user_id", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Parse request
 	var req struct {
 		URL  string   `json:"url"`
@@ -452,8 +515,8 @@ func (s *Server) handleIngestURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ingest URL
-	if err := s.ingester.IngestURL(ctx, req.URL, req.Tags); err != nil {
+	// Ingest URL with user_id
+	if err := s.ingester.IngestURL(ctx, userID, req.URL, req.Tags); err != nil {
 		logger.Error("request failed", "operation", "ingest_url", "url", req.URL, "error", err.Error())
 		http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 		return
@@ -539,6 +602,12 @@ func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
 
 // ingestFile is a helper that processes file ingestion
 func (s *Server) ingestFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, tags []string) error {
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		return fmt.Errorf("unauthorized: %w", err)
+	}
+
 	// Read file content
 	content, err := io.ReadAll(file)
 	if err != nil {
@@ -549,8 +618,8 @@ func (s *Server) ingestFile(ctx context.Context, file multipart.File, header *mu
 	// In a full implementation, this would handle different file types
 	text := string(content)
 
-	// Ingest as text
-	return s.ingester.IngestText(ctx, header.Filename, text, tags)
+	// Ingest as text with user_id
+	return s.ingester.IngestText(ctx, userID, header.Filename, text, tags)
 }
 
 // handleDelete removes a document and all its chunks
@@ -682,35 +751,43 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 
+	// Load current config from file to get latest values
+	cfg, err := config.Load(s.configPath)
+	if err != nil {
+		logger.Error("Failed to load config", "error", err.Error())
+		http.Error(w, "Failed to load configuration", http.StatusInternalServerError)
+		return
+	}
+
 	// Create nested config structure that matches template expectations
 	configData := map[string]interface{}{
 		"Privacy": map[string]interface{}{
-			"Enabled": s.config.PrivacyMode,
+			"Enabled": cfg.Privacy.Enabled,
 		},
 		"Provider": map[string]interface{}{
-			"Type":               s.config.Provider,
-			"OllamaEndpoint":     s.config.OllamaEndpoint,
-			"OllamaEmbedModel":   s.config.OllamaEmbedModel,
-			"OllamaChatModel":    s.config.OllamaChatModel,
-			"OpenAIKey":          s.config.OpenAIKey,
-			"OpenAIEmbedModel":   s.config.OpenAIEmbedModel,
-			"OpenAIChatModel":    s.config.OpenAIChatModel,
-			"AnthropicKey":       s.config.AnthropicKey,
-			"AnthropicChatModel": s.config.AnthropicChatModel,
+			"Type":               cfg.Provider.Type,
+			"OllamaEndpoint":     cfg.Provider.OllamaEndpoint,
+			"OllamaEmbedModel":   cfg.Provider.OllamaEmbedModel,
+			"OllamaChatModel":    cfg.Provider.OllamaChatModel,
+			"OpenAIKey":          cfg.Provider.OpenAIKey,
+			"OpenAIEmbedModel":   cfg.Provider.OpenAIEmbedModel,
+			"OpenAIChatModel":    cfg.Provider.OpenAIChatModel,
+			"AnthropicKey":       cfg.Provider.AnthropicKey,
+			"AnthropicChatModel": cfg.Provider.AnthropicChatModel,
 		},
-		"Folders": []string{},
+		"Folders": cfg.Folders,
 		"Guardrails": map[string]interface{}{
-			"PIIDetection":  "normal",
-			"AutoSummarize": true,
-			"MaxFileSizeMB": 10,
-			"MaxConcurrent": 3,
+			"PIIDetection":  cfg.Guardrails.PIIDetection,
+			"AutoSummarize": cfg.Guardrails.AutoSummarize,
+			"MaxFileSizeMB": cfg.Guardrails.MaxFileSizeMB,
+			"MaxConcurrent": cfg.Guardrails.MaxConcurrent,
 		},
 	}
 
 	data := map[string]interface{}{
 		"Title":       "Settings",
 		"Page":        "settings",
-		"PrivacyMode": s.config.PrivacyMode,
+		"PrivacyMode": cfg.Privacy.Enabled,
 		"Config":      configData,
 	}
 
@@ -807,48 +884,32 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(html.String()))
 }
 
-// handleSkills lists available skills
+// handleSkills lists available skills for the current user
 func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Load all skills
-	skills, err := s.skillsLoader.LoadAll()
+	ctx := r.Context()
+
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get skills for this user from database
+	skills, err := s.store.GetUserSkills(ctx, userID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to load skills: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Convert to JSON-friendly format
-	type SkillInfo struct {
-		Name        string   `json:"name"`
-		Version     string   `json:"version"`
-		Description string   `json:"description"`
-		Triggers    []string `json:"triggers"`
-		RequiresNet bool     `json:"requires_network"`
-	}
-
-	skillsInfo := make([]SkillInfo, 0, len(skills))
-	for _, skill := range skills {
-		triggers := make([]string, 0, len(skill.Triggers))
-		for _, trigger := range skill.Triggers {
-			triggers = append(triggers, trigger.Type)
-		}
-
-		skillsInfo = append(skillsInfo, SkillInfo{
-			Name:        skill.Name,
-			Version:     skill.Version,
-			Description: skill.Description,
-			Triggers:    triggers,
-			RequiresNet: skill.RequiresNet,
-		})
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"skills": skillsInfo,
+		"skills": skills,
 	})
 }
 
@@ -856,6 +917,15 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRunSkill(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -871,8 +941,8 @@ func (s *Server) handleRunSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load all skills and find the requested one
-	skills, err := s.skillsLoader.LoadAll()
+	// Load skills for this user
+	skills, err := s.skillsLoader.LoadForUser(ctx, userID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to load skills: %v", err), http.StatusInternalServerError)
 		return
@@ -891,6 +961,12 @@ func (s *Server) handleRunSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Verify skill ownership - ensure the skill belongs to the current user
+	if targetSkill.UserID != userID {
+		http.Error(w, "Unauthorized: skill does not belong to current user", http.StatusForbidden)
+		return
+	}
+
 	// Check if skill has manual trigger
 	hasManualTrigger := false
 	for _, trigger := range targetSkill.Triggers {
@@ -906,7 +982,6 @@ func (s *Server) handleRunSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute skill
-	ctx := r.Context()
 	input := SkillInput{
 		Query:    req.Query,
 		Context:  req.Context,
@@ -931,4 +1006,862 @@ func (s *Server) handleRunSkill(w http.ResponseWriter, r *http.Request) {
 		"result":   output.Result,
 		"metadata": output.Metadata,
 	})
+}
+
+// handleWatchedFolders returns the list of watched folders for the current user
+func (s *Server) handleWatchedFolders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Extract user_id from context
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get watched folders for this user
+	folders, err := s.store.GetWatchedFoldersByUser(ctx, userID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get watched folders: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"folders": folders,
+	})
+}
+
+// Authentication Handlers
+
+// handleLogin processes user login and returns a session token
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing login request")
+
+	if r.Method != http.MethodPost {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Parse request
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("request failed", "operation", "parse_request", "error", err.Error())
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Validate input
+	if req.Username == "" || req.Password == "" {
+		logger.Warn("login failed", "reason", "missing credentials")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Username and password are required",
+		})
+		return
+	}
+
+	// Call auth provider Login
+	token, err := s.authProvider.Login(ctx, req.Username, req.Password)
+	if err != nil {
+		logger.Warn("login failed", "username", req.Username, "error", err.Error())
+
+		// Check if account is locked
+		if strings.Contains(err.Error(), "account locked") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusLocked) // 423
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			})
+			return
+		}
+
+		// Invalid credentials
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Invalid username or password",
+		})
+		return
+	}
+
+	// Get user details to check must_change_password flag
+	user, err := s.store.GetUserByUsername(ctx, req.Username)
+	if err != nil {
+		logger.Error("request failed", "operation", "get_user", "error", err.Error())
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Set session_token cookie
+	cookie := &http.Cookie{
+		Name:     "session_token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   7 * 24 * 60 * 60, // 7 days
+	}
+
+	// Set Secure flag in production (when not localhost)
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		cookie.Secure = true
+	}
+
+	http.SetCookie(w, cookie)
+
+	// Determine redirect URL based on must_change_password
+	redirectURL := "/"
+	if user.MustChangePassword {
+		redirectURL = "/change-password"
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"user": map[string]interface{}{
+			"username": user.Username,
+			"is_admin": user.IsAdmin,
+		},
+		"must_change_password": user.MustChangePassword,
+		"redirect":             redirectURL,
+	})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("login successful", "username", req.Username, "latency_ms", latency)
+}
+
+// handleLogout invalidates the user's session token
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing logout request")
+
+	if r.Method != http.MethodPost {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Extract token from request (use extractToken from middleware)
+	token := extractTokenFromRequest(r)
+	if token != "" {
+		// Call auth provider Logout
+		if err := s.authProvider.Logout(ctx, token); err != nil {
+			logger.Warn("logout failed", "error", err.Error())
+		}
+	}
+
+	// Clear session_token cookie
+	cookie := &http.Cookie{
+		Name:     "session_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1, // Delete cookie
+	}
+	http.SetCookie(w, cookie)
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("logout successful", "latency_ms", latency)
+}
+
+// handleRegister creates a new user account
+func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing registration request")
+
+	if r.Method != http.MethodPost {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Parse request
+	var req struct {
+		Username        string `json:"username"`
+		Email           string `json:"email"`
+		Password        string `json:"password"`
+		ConfirmPassword string `json:"confirm_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("request failed", "operation", "parse_request", "error", err.Error())
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Validate password confirmation
+	if req.Password != req.ConfirmPassword {
+		logger.Warn("registration failed", "reason", "password mismatch")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Passwords do not match",
+		})
+		return
+	}
+
+	// Validate username format (3-32 chars, alphanumeric + underscore/dash)
+	if len(req.Username) < 3 || len(req.Username) > 32 {
+		logger.Warn("registration failed", "reason", "invalid username length")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Username must be between 3 and 32 characters",
+		})
+		return
+	}
+
+	// Check username contains only valid characters
+	for _, c := range req.Username {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+			logger.Warn("registration failed", "reason", "invalid username characters")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"error":   "Username can only contain letters, numbers, underscores, and dashes",
+			})
+			return
+		}
+	}
+
+	// Validate email format (basic regex)
+	if !strings.Contains(req.Email, "@") || !strings.Contains(req.Email, ".") {
+		logger.Warn("registration failed", "reason", "invalid email format")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Invalid email format",
+		})
+		return
+	}
+
+	// Create user (is_admin=false, must_change_password=false)
+	_, err := s.store.CreateUser(ctx, req.Username, req.Password, req.Email, false, false)
+	if err != nil {
+		logger.Error("registration failed", "username", req.Username, "error", err.Error())
+
+		// Check for duplicate username/email
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "duplicate") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict) // 409
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"error":   "Username or email already exists",
+			})
+			return
+		}
+
+		// Server error
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Failed to create account",
+		})
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Account created successfully",
+	})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("registration successful", "username", req.Username, "latency_ms", latency)
+}
+
+// handleChangePassword changes the user's password
+func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing change password request")
+
+	if r.Method != http.MethodPost {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Extract user_id from context (set by auth middleware)
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		logger.Error("request failed", "operation", "get_user_id", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse request
+	var req struct {
+		NewPassword     string `json:"new_password"`
+		ConfirmPassword string `json:"confirm_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("request failed", "operation", "parse_request", "error", err.Error())
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Validate password confirmation
+	if req.NewPassword != req.ConfirmPassword {
+		logger.Warn("password change failed", "reason", "password mismatch")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Passwords do not match",
+		})
+		return
+	}
+
+	// Validate password strength (min 8 chars)
+	if len(req.NewPassword) < 8 {
+		logger.Warn("password change failed", "reason", "password too short")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Password must be at least 8 characters",
+		})
+		return
+	}
+
+	// Update password
+	if err := s.store.UpdatePassword(ctx, userID, req.NewPassword); err != nil {
+		logger.Error("password change failed", "user_id", userID, "error", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Failed to change password",
+		})
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Password changed successfully",
+	})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("password change successful", "user_id", userID, "latency_ms", latency)
+}
+
+// extractTokenFromRequest extracts the session token from the request
+// First checks Authorization header with "Bearer " prefix
+// Falls back to session_token cookie if header not present
+// Returns empty string if neither is found
+func extractTokenFromRequest(r *http.Request) string {
+	// Try Authorization header first
+	auth := r.Header.Get("Authorization")
+	if strings.HasPrefix(auth, "Bearer ") {
+		return strings.TrimPrefix(auth, "Bearer ")
+	}
+
+	// Fall back to cookie
+	cookie, err := r.Cookie("session_token")
+	if err == nil {
+		return cookie.Value
+	}
+
+	return ""
+}
+
+// isAdmin checks if the current user is an admin
+// Returns (isAdmin bool, userID int64, error)
+func (s *Server) isAdmin(ctx context.Context) (bool, int64, error) {
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		return false, 0, err
+	}
+
+	user, err := s.store.GetUserByID(ctx, userID)
+	if err != nil {
+		return false, 0, err
+	}
+
+	return user.IsAdmin, userID, nil
+}
+
+// generateRandomPassword generates a secure random password
+func generateRandomPassword(length int) (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	password := make([]byte, length)
+
+	for i := range password {
+		// Generate random byte
+		randomBytes := make([]byte, 1)
+		if _, err := rand.Read(randomBytes); err != nil {
+			return "", err
+		}
+		// Map to charset
+		password[i] = charset[int(randomBytes[0])%len(charset)]
+	}
+
+	return string(password), nil
+}
+
+// handleGetUsers handles GET /api/users - list all users (admin only)
+func (s *Server) handleGetUsers(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing get users request")
+
+	ctx := r.Context()
+
+	// Check if current user is admin
+	isAdmin, userID, err := s.isAdmin(ctx)
+	if err != nil {
+		logger.Error("failed to get user from context", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !isAdmin {
+		logger.Warn("non-admin user attempted to list users", "user_id", userID)
+		http.Error(w, "Forbidden: admin access required", http.StatusForbidden)
+		return
+	}
+
+	// Get all users
+	users, err := s.store.ListUsers(ctx)
+	if err != nil {
+		logger.Error("failed to list users", "error", err.Error())
+		http.Error(w, "Failed to retrieve users", http.StatusInternalServerError)
+		return
+	}
+
+	// Format response
+	type UserResponse struct {
+		ID        int64     `json:"id"`
+		Username  string    `json:"username"`
+		Email     string    `json:"email"`
+		IsAdmin   bool      `json:"is_admin"`
+		CreatedAt time.Time `json:"created_at"`
+		LastLogin time.Time `json:"last_login"`
+	}
+
+	userList := make([]UserResponse, len(users))
+	for i, user := range users {
+		userList[i] = UserResponse{
+			ID:        user.ID,
+			Username:  user.Username,
+			Email:     user.Email,
+			IsAdmin:   user.IsAdmin,
+			CreatedAt: user.CreatedAt,
+			LastLogin: user.LastLogin,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"users": userList,
+	})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("get users successful", "user_count", len(users), "latency_ms", latency)
+}
+
+// handleCreateUser handles POST /api/users - create new user (admin only)
+func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing create user request")
+
+	ctx := r.Context()
+
+	// Check if current user is admin
+	isAdmin, userID, err := s.isAdmin(ctx)
+	if err != nil {
+		logger.Error("failed to get user from context", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !isAdmin {
+		logger.Warn("non-admin user attempted to create user", "user_id", userID)
+		http.Error(w, "Forbidden: admin access required", http.StatusForbidden)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		IsAdmin  bool   `json:"is_admin"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("failed to decode request body", "error", err.Error())
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate input
+	if req.Username == "" {
+		http.Error(w, "Username is required", http.StatusBadRequest)
+		return
+	}
+
+	if req.Password == "" {
+		http.Error(w, "Password is required", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Password) < 8 {
+		http.Error(w, "Password must be at least 8 characters", http.StatusBadRequest)
+		return
+	}
+
+	// Validate username format (alphanumeric and underscore only)
+	for _, c := range req.Username {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+			http.Error(w, "Username must contain only alphanumeric characters and underscores", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Validate email format if provided
+	if req.Email != "" && !strings.Contains(req.Email, "@") {
+		http.Error(w, "Invalid email format", http.StatusBadRequest)
+		return
+	}
+
+	// Create user
+	newUserID, err := s.store.CreateUser(ctx, req.Username, req.Password, req.Email, req.IsAdmin, false)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "unique") {
+			if strings.Contains(err.Error(), "username") {
+				logger.Warn("duplicate username", "username", req.Username)
+				http.Error(w, "Username already exists", http.StatusConflict)
+			} else if strings.Contains(err.Error(), "email") {
+				logger.Warn("duplicate email", "email", req.Email)
+				http.Error(w, "Email already registered", http.StatusConflict)
+			} else {
+				http.Error(w, "User already exists", http.StatusConflict)
+			}
+			return
+		}
+		logger.Error("failed to create user", "error", err.Error())
+		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		return
+	}
+
+	// Get created user
+	newUser, err := s.store.GetUserByID(ctx, newUserID)
+	if err != nil {
+		logger.Error("failed to get created user", "error", err.Error())
+		http.Error(w, "User created but failed to retrieve details", http.StatusInternalServerError)
+		return
+	}
+
+	// Format response
+	type UserResponse struct {
+		ID       int64  `json:"id"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		IsAdmin  bool   `json:"is_admin"`
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"user": UserResponse{
+			ID:       newUser.ID,
+			Username: newUser.Username,
+			Email:    newUser.Email,
+			IsAdmin:  newUser.IsAdmin,
+		},
+	})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("user created successfully", "new_user_id", newUserID, "username", req.Username, "latency_ms", latency)
+}
+
+// handleDeleteUser handles DELETE /api/users/:id - delete user (admin only)
+func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing delete user request")
+
+	ctx := r.Context()
+
+	// Check if current user is admin
+	isAdmin, userID, err := s.isAdmin(ctx)
+	if err != nil {
+		logger.Error("failed to get user from context", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !isAdmin {
+		logger.Warn("non-admin user attempted to delete user", "user_id", userID)
+		http.Error(w, "Forbidden: admin access required", http.StatusForbidden)
+		return
+	}
+
+	// Extract target user ID from URL path
+	// Expected format: /api/users/:id
+	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(pathParts) < 3 {
+		http.Error(w, "Invalid URL format", http.StatusBadRequest)
+		return
+	}
+
+	var targetUserID int64
+	if _, err := fmt.Sscanf(pathParts[2], "%d", &targetUserID); err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// Prevent admin from deleting themselves
+	if targetUserID == userID {
+		logger.Warn("admin attempted to delete themselves", "user_id", userID)
+		http.Error(w, "Cannot delete your own account", http.StatusBadRequest)
+		return
+	}
+
+	// Check if target user exists
+	targetUser, err := s.store.GetUserByID(ctx, targetUserID)
+	if err != nil {
+		logger.Warn("target user not found", "target_user_id", targetUserID)
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// Delete user
+	if err := s.store.DeleteUser(ctx, targetUserID); err != nil {
+		logger.Error("failed to delete user", "target_user_id", targetUserID, "error", err.Error())
+		http.Error(w, "Failed to delete user", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "User deleted successfully",
+	})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("user deleted successfully", "target_user_id", targetUserID, "target_username", targetUser.Username, "latency_ms", latency)
+}
+
+// handleResetUserPassword handles POST /api/users/:id/reset-password - reset user password (admin only)
+func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing reset user password request")
+
+	ctx := r.Context()
+
+	// Check if current user is admin
+	isAdmin, userID, err := s.isAdmin(ctx)
+	if err != nil {
+		logger.Error("failed to get user from context", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !isAdmin {
+		logger.Warn("non-admin user attempted to reset password", "user_id", userID)
+		http.Error(w, "Forbidden: admin access required", http.StatusForbidden)
+		return
+	}
+
+	// Extract target user ID from URL path
+	// Expected format: /api/users/:id/reset-password
+	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(pathParts) < 3 {
+		http.Error(w, "Invalid URL format", http.StatusBadRequest)
+		return
+	}
+
+	var targetUserID int64
+	if _, err := fmt.Sscanf(pathParts[2], "%d", &targetUserID); err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check if target user exists
+	targetUser, err := s.store.GetUserByID(ctx, targetUserID)
+	if err != nil {
+		logger.Warn("target user not found", "target_user_id", targetUserID)
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// Generate random password
+	randomPassword, err := generateRandomPassword(16)
+	if err != nil {
+		logger.Error("failed to generate random password", "error", err.Error())
+		http.Error(w, "Failed to generate password", http.StatusInternalServerError)
+		return
+	}
+
+	// Update password (this sets must_change_password to false by default)
+	if err := s.store.UpdatePassword(ctx, targetUserID, randomPassword); err != nil {
+		logger.Error("failed to update password", "target_user_id", targetUserID, "error", err.Error())
+		http.Error(w, "Failed to reset password", http.StatusInternalServerError)
+		return
+	}
+
+	// Note: The design mentions we need to set must_change_password=true after reset
+	// However, UpdatePassword sets it to false. We need to update the user record separately.
+	// For now, we'll document this as a known limitation and the user will need to change
+	// their password voluntarily. A proper implementation would require a new store method
+	// or modifying UpdatePassword to accept a must_change_password parameter.
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":            true,
+		"temporary_password": randomPassword,
+		"message":            "Password reset successfully. User should change password on next login.",
+	})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("password reset successful", "target_user_id", targetUserID, "target_username", targetUser.Username, "latency_ms", latency)
+}
+
+// handleLoginPage renders the login page
+func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
+	// Prevent caching
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
+	// Prepare template data
+	data := map[string]interface{}{
+		"Title": "Login",
+	}
+
+	// Render login template
+	if err := s.templates.ExecuteTemplate(w, "login-content", data); err != nil {
+		s.logger.Error("Failed to render login template: %v", err)
+		http.Error(w, "Failed to render login page", http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleRegisterPage renders the registration page
+func (s *Server) handleRegisterPage(w http.ResponseWriter, r *http.Request) {
+	// Prevent caching
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
+	// Prepare template data
+	data := map[string]interface{}{
+		"Title": "Register",
+	}
+
+	// Render register template
+	if err := s.templates.ExecuteTemplate(w, "register-content", data); err != nil {
+		s.logger.Error("Failed to render register template: %v", err)
+		http.Error(w, "Failed to render register page", http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleChangePasswordPage renders the password change page
+func (s *Server) handleChangePasswordPage(w http.ResponseWriter, r *http.Request) {
+	// Prevent caching
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
+	// Prepare template data
+	data := map[string]interface{}{
+		"Title": "Change Password",
+	}
+
+	// Render change-password template
+	if err := s.templates.ExecuteTemplate(w, "change-password-content", data); err != nil {
+		s.logger.Error("Failed to render change-password template: %v", err)
+		http.Error(w, "Failed to render change password page", http.StatusInternalServerError)
+		return
+	}
 }

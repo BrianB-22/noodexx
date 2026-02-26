@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"noodexx/internal/auth"
+	"strings"
 	"time"
 )
 
@@ -22,6 +24,8 @@ type Server struct {
 	skillsLoader   SkillsLoader
 	skillsExecutor SkillsExecutor
 	logger         Logger
+	authProvider   AuthProvider
+	configPath     string // Path to config file for saving
 }
 
 // Logger interface for structured logging
@@ -38,13 +42,50 @@ type Logger interface {
 type Store interface {
 	SaveChunk(ctx context.Context, source, text string, embedding []float32, tags []string, summary string) error
 	Search(ctx context.Context, queryVec []float32, topK int) ([]Chunk, error)
+	SearchByUser(ctx context.Context, userID int64, queryVec []float32, topK int) ([]Chunk, error)
 	Library(ctx context.Context) ([]LibraryEntry, error)
+	LibraryByUser(ctx context.Context, userID int64) ([]LibraryEntry, error)
 	DeleteSource(ctx context.Context, source string) error
 	SaveMessage(ctx context.Context, sessionID, role, content string) error
+	SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content string) error
 	GetSessionHistory(ctx context.Context, sessionID string) ([]ChatMessage, error)
+	GetSessionMessages(ctx context.Context, userID int64, sessionID string) ([]ChatMessage, error)
 	ListSessions(ctx context.Context) ([]Session, error)
+	GetUserSessions(ctx context.Context, userID int64) ([]Session, error)
+	GetSessionOwner(ctx context.Context, sessionID string) (int64, error)
 	AddAuditEntry(ctx context.Context, opType, details, userCtx string) error
 	GetAuditLog(ctx context.Context, opType string, from, to time.Time) ([]AuditEntry, error)
+	// User management methods
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	GetUserByID(ctx context.Context, userID int64) (*User, error)
+	CreateUser(ctx context.Context, username, password, email string, isAdmin, mustChangePassword bool) (int64, error)
+	UpdatePassword(ctx context.Context, userID int64, newPassword string) error
+	ListUsers(ctx context.Context) ([]User, error)
+	DeleteUser(ctx context.Context, userID int64) error
+	// Skills management methods
+	GetUserSkills(ctx context.Context, userID int64) ([]Skill, error)
+	// Watched folders management methods
+	GetWatchedFoldersByUser(ctx context.Context, userID int64) ([]WatchedFolder, error)
+}
+
+// AuthProvider interface for authentication operations
+type AuthProvider interface {
+	Login(ctx context.Context, username, password string) (token string, err error)
+	Logout(ctx context.Context, token string) error
+	ValidateToken(ctx context.Context, token string) (userID int64, err error)
+	RefreshToken(ctx context.Context, token string) (newToken string, err error)
+}
+
+// User represents a user account
+type User struct {
+	ID                 int64
+	Username           string
+	PasswordHash       string
+	Email              string
+	IsAdmin            bool
+	MustChangePassword bool
+	CreatedAt          time.Time
+	LastLogin          time.Time
 }
 
 // LLMProvider interface for chat and embeddings
@@ -57,8 +98,8 @@ type LLMProvider interface {
 
 // Ingester interface for document ingestion
 type Ingester interface {
-	IngestText(ctx context.Context, source, text string, tags []string) error
-	IngestURL(ctx context.Context, url string, tags []string) error
+	IngestText(ctx context.Context, userID int64, source, text string, tags []string) error
+	IngestURL(ctx context.Context, userID int64, url string, tags []string) error
 }
 
 // Searcher interface for RAG search
@@ -69,6 +110,7 @@ type Searcher interface {
 // SkillsLoader interface for loading skills
 type SkillsLoader interface {
 	LoadAll() ([]*Skill, error)
+	LoadForUser(ctx context.Context, userID int64) ([]*Skill, error)
 }
 
 // SkillsExecutor interface for executing skills
@@ -78,6 +120,7 @@ type SkillsExecutor interface {
 
 // Skill represents a loaded skill
 type Skill struct {
+	UserID      int64 // Owner of the skill
 	Name        string
 	Version     string
 	Description string
@@ -146,6 +189,13 @@ type Session struct {
 	MessageCount  int
 }
 
+// WatchedFolder represents a monitored directory
+type WatchedFolder struct {
+	ID     int64
+	Path   string
+	UserID int64
+}
+
 // AuditEntry represents an audit log entry
 type AuditEntry struct {
 	ID            int64
@@ -158,6 +208,7 @@ type AuditEntry struct {
 // ServerConfig holds server configuration
 type ServerConfig struct {
 	PrivacyMode        bool
+	UserMode           string // "single" or "multi"
 	Provider           string
 	OllamaEndpoint     string
 	OllamaEmbedModel   string
@@ -170,12 +221,12 @@ type ServerConfig struct {
 }
 
 // NewServer creates a server with dependencies and loads templates
-func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger) (*Server, error) {
-	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, skillsLoader, skillsExecutor, logger, "web/templates/*.html")
+func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string) (*Server, error) {
+	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, skillsLoader, skillsExecutor, logger, authProvider, configPath, "web/templates/*.html")
 }
 
 // NewServerWithTemplatePath creates a server with a custom template path (useful for testing)
-func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, templatePath string) (*Server, error) {
+func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string, templatePath string) (*Server, error) {
 	// Load templates from the specified path
 	tmpl, err := template.ParseGlob(templatePath)
 	if err != nil {
@@ -193,6 +244,8 @@ func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Inges
 		skillsLoader:   skillsLoader,
 		skillsExecutor: skillsExecutor,
 		logger:         logger,
+		authProvider:   authProvider,
+		configPath:     configPath,
 	}
 
 	// Start WebSocket hub
@@ -227,13 +280,58 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/test-connection", s.handleTestConnection)
 	mux.HandleFunc("/api/activity", s.handleActivity)
+	mux.HandleFunc("/api/library", s.handleLibrary) // API endpoint for HTMX library loading
 	mux.HandleFunc("/api/skills", s.handleSkills)
 	mux.HandleFunc("/api/skills/run", s.handleRunSkill)
+	mux.HandleFunc("/api/watched-folders", s.handleWatchedFolders)
+	mux.HandleFunc("/api/settings", s.handleSaveSettings)    // Save settings endpoint
+	mux.HandleFunc("/api/privacy-mode", s.handlePrivacyMode) // Toggle privacy mode
+	// Authentication routes
+	mux.HandleFunc("/api/login", s.handleLogin)
+	mux.HandleFunc("/api/logout", s.handleLogout)
+	mux.HandleFunc("/api/register", s.handleRegister)
+	mux.HandleFunc("/api/change-password", s.handleChangePassword)
+	// Admin user management routes
+	mux.HandleFunc("/api/users", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			s.handleGetUsers(w, r)
+		} else if r.Method == http.MethodPost {
+			s.handleCreateUser(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/users/", func(w http.ResponseWriter, r *http.Request) {
+		// Handle /api/users/:id and /api/users/:id/reset-password
+		if strings.HasSuffix(r.URL.Path, "/reset-password") {
+			if r.Method == http.MethodPost {
+				s.handleResetUserPassword(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else {
+			if r.Method == http.MethodDelete {
+				s.handleDeleteUser(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		}
+	})
 	log.Printf("Registered: API routes")
 
 	// WebSocket
 	mux.HandleFunc("/ws", s.handleWebSocket)
 	log.Printf("Registered: /ws")
+
+	// Authentication page routes (multi-user mode only, but registered always)
+	mux.HandleFunc("/login", s.handleLoginPage)
+	log.Printf("Registered: /login -> handleLoginPage")
+
+	mux.HandleFunc("/register", s.handleRegisterPage)
+	log.Printf("Registered: /register -> handleRegisterPage")
+
+	mux.HandleFunc("/change-password", s.handleChangePasswordPage)
+	log.Printf("Registered: /change-password -> handleChangePasswordPage")
 
 	// Page routes (register last, with exact path matching)
 	mux.HandleFunc("/settings", s.handleSettings)
@@ -246,13 +344,29 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	log.Printf("Registered: /chat -> handleChat")
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Only handle exact "/" path for dashboard
+		// Only handle exact "/" path
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
 			return
 		}
+
+		// In multi-user mode, redirect to login if not authenticated
+		if s.config.UserMode == "multi" {
+			// Check if user is authenticated by looking for user_id in context
+			ctx := r.Context()
+			userID, err := auth.GetUserID(ctx)
+			log.Printf("Root handler: user_mode=multi, userID=%d, err=%v", userID, err)
+			if err != nil || userID == 0 {
+				// Not authenticated, redirect to login
+				log.Printf("Redirecting to /login")
+				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				return
+			}
+		}
+
+		// Authenticated or single-user mode, show dashboard
 		s.handleDashboard(w, r)
 	})
-	log.Printf("Registered: / -> handleDashboard (with exact match)")
+	log.Printf("Registered: / -> handleDashboard (with user_mode routing)")
 	log.Printf("=== Route registration complete ===")
 }

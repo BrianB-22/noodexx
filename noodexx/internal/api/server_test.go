@@ -49,6 +49,64 @@ func (m *mockStore) GetAuditLog(ctx context.Context, opType string, from, to tim
 	return []AuditEntry{}, nil
 }
 
+func (m *mockStore) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	return &User{ID: 1, Username: username}, nil
+}
+
+func (m *mockStore) CreateUser(ctx context.Context, username, password, email string, isAdmin, mustChangePassword bool) (int64, error) {
+	return 1, nil
+}
+
+func (m *mockStore) UpdatePassword(ctx context.Context, userID int64, newPassword string) error {
+	return nil
+}
+
+func (m *mockStore) GetUserByID(ctx context.Context, userID int64) (*User, error) {
+	return &User{ID: userID, Username: "testuser"}, nil
+}
+
+func (m *mockStore) ListUsers(ctx context.Context) ([]User, error) {
+	return []User{}, nil
+}
+
+func (m *mockStore) DeleteUser(ctx context.Context, userID int64) error {
+	return nil
+}
+
+func (m *mockStore) SearchByUser(ctx context.Context, userID int64, queryVec []float32, topK int) ([]Chunk, error) {
+	return []Chunk{}, nil
+}
+
+func (m *mockStore) LibraryByUser(ctx context.Context, userID int64) ([]LibraryEntry, error) {
+	return []LibraryEntry{}, nil
+}
+
+func (m *mockStore) SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content string) error {
+	return nil
+}
+
+func (m *mockStore) GetUserSessions(ctx context.Context, userID int64) ([]Session, error) {
+	return []Session{}, nil
+}
+
+func (m *mockStore) GetSessionOwner(ctx context.Context, sessionID string) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockStore) GetSessionMessages(ctx context.Context, userID int64, sessionID string) ([]ChatMessage, error) {
+	return []ChatMessage{}, nil
+}
+
+func (m *mockStore) GetUserSkills(ctx context.Context, userID int64) ([]Skill, error) {
+	return []Skill{}, nil
+}
+
+func (m *mockStore) GetWatchedFoldersByUser(ctx context.Context, userID int64) ([]WatchedFolder, error) {
+	return []WatchedFolder{}, nil
+}
+
+// mockAuthProvider is defined in auth_handlers_test.go
+
 type mockProvider struct{}
 
 func (m *mockProvider) Embed(ctx context.Context, text string) ([]float32, error) {
@@ -69,11 +127,11 @@ func (m *mockProvider) IsLocal() bool {
 
 type mockIngester struct{}
 
-func (m *mockIngester) IngestText(ctx context.Context, source, text string, tags []string) error {
+func (m *mockIngester) IngestText(ctx context.Context, userID int64, source, text string, tags []string) error {
 	return nil
 }
 
-func (m *mockIngester) IngestURL(ctx context.Context, url string, tags []string) error {
+func (m *mockIngester) IngestURL(ctx context.Context, userID int64, url string, tags []string) error {
 	return nil
 }
 
@@ -106,7 +164,7 @@ func TestNewServer(t *testing.T) {
 	}
 
 	// Use the correct path from the test's perspective (running from noodexx directory)
-	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, "../../web/templates/*.html")
+	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, &mockAuthProvider{}, "config.json", "../../web/templates/*.html")
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}
@@ -151,7 +209,7 @@ func TestRegisterRoutes(t *testing.T) {
 		Provider:    "ollama",
 	}
 
-	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, "../../web/templates/*.html")
+	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, &mockAuthProvider{}, "config.json", "../../web/templates/*.html")
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}
@@ -160,23 +218,25 @@ func TestRegisterRoutes(t *testing.T) {
 	srv.RegisterRoutes(mux)
 
 	// Test that routes are registered by making test requests
+	// Note: These tests don't apply the auth middleware, so routes that require auth will return 401
 	testCases := []struct {
-		path   string
-		method string
+		path           string
+		method         string
+		expectedStatus int
+		description    string
 	}{
-		{"/", "GET"},
-		{"/chat", "GET"},
-		{"/library", "GET"},
-		{"/settings", "GET"},
-		{"/api/ask", "POST"},
-		{"/api/ingest/text", "POST"},
-		{"/api/ingest/url", "POST"},
-		{"/api/ingest/file", "POST"},
-		{"/api/delete", "POST"},
-		{"/api/sessions", "GET"},
-		{"/api/session/test", "GET"},
-		{"/api/config", "POST"},
-		{"/api/activity", "GET"},
+		{"/", "GET", http.StatusOK, "dashboard should return 200"},
+		{"/chat", "GET", http.StatusOK, "chat page should return 200"},
+		{"/library", "GET", http.StatusUnauthorized, "library page requires auth"},
+		{"/settings", "GET", http.StatusOK, "settings page should return 200"},
+		{"/api/ask", "POST", http.StatusUnauthorized, "ask endpoint requires auth"},
+		{"/api/ingest/text", "POST", http.StatusUnauthorized, "ingest text requires auth"},
+		{"/api/ingest/url", "POST", http.StatusUnauthorized, "ingest url requires auth"},
+		{"/api/sessions", "GET", http.StatusUnauthorized, "sessions endpoint requires auth"},
+		{"/api/config", "POST", http.StatusOK, "config endpoint should return 200"},
+		{"/api/activity", "GET", http.StatusOK, "activity endpoint should return 200"},
+		{"/api/login", "POST", http.StatusBadRequest, "login endpoint should return 400 for empty request"},
+		{"/api/register", "POST", http.StatusBadRequest, "register endpoint should return 400 for empty request"},
 	}
 
 	for _, tc := range testCases {
@@ -184,9 +244,8 @@ func TestRegisterRoutes(t *testing.T) {
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
-		// We expect 501 Not Implemented for now since handlers are placeholders
-		if w.Code != http.StatusNotImplemented {
-			t.Errorf("Route %s %s: expected status 501, got %d", tc.method, tc.path, w.Code)
+		if w.Code != tc.expectedStatus {
+			t.Errorf("Route %s %s: %s - expected status %d, got %d", tc.method, tc.path, tc.description, tc.expectedStatus, w.Code)
 		}
 	}
 }
@@ -202,7 +261,7 @@ func TestStaticFileServing(t *testing.T) {
 		Provider:    "ollama",
 	}
 
-	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, "../../web/templates/*.html")
+	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, &mockAuthProvider{}, "config.json", "../../web/templates/*.html")
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}

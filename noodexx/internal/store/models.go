@@ -1,6 +1,9 @@
 package store
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 // Chunk represents a text segment with its embedding
 type Chunk struct {
@@ -50,7 +53,38 @@ type AuditEntry struct {
 // WatchedFolder represents a monitored directory
 type WatchedFolder struct {
 	ID       int64
+	UserID   int64
 	Path     string
 	Active   bool
 	LastScan time.Time
+}
+
+// User represents a user account
+type User struct {
+	ID                 int64
+	Username           string
+	PasswordHash       string
+	Email              sql.NullString
+	IsAdmin            bool
+	MustChangePassword bool
+	CreatedAt          time.Time
+	LastLogin          time.Time
+}
+
+// SessionToken represents an authentication session token
+type SessionToken struct {
+	Token     string
+	UserID    int64
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+// Skill represents a user-owned skill/plugin
+type Skill struct {
+	ID        int64
+	UserID    int64
+	Name      string
+	Path      string
+	Enabled   bool
+	CreatedAt time.Time
 }

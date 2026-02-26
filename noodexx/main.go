@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"noodexx/internal/api"
+	"noodexx/internal/auth"
 	"noodexx/internal/config"
 	"noodexx/internal/ingest"
 	"noodexx/internal/llm"
@@ -54,6 +55,23 @@ func initializeLogging(cfg *config.Config) (*logging.Logger, io.Writer, error) {
 	return logging.NewLogger("main", level, writer), writer, nil
 }
 
+// initAuthProvider initializes the authentication provider based on configuration
+func initAuthProvider(authStore auth.Store, cfg *config.Config, logger *logging.Logger) auth.Provider {
+	authProvider, err := auth.GetProvider(
+		cfg.Auth.Provider,
+		authStore,
+		cfg.Auth.SessionExpiryDays,
+		cfg.Auth.LockoutThreshold,
+		cfg.Auth.LockoutDurationMinutes,
+	)
+	if err != nil {
+		logger.Error("Failed to initialize auth provider: %v", err)
+		log.Fatalf("Failed to initialize auth provider: %v", err)
+	}
+	logger.Info("Auth provider initialized: %s", cfg.Auth.Provider)
+	return authProvider
+}
+
 func main() {
 	// Load configuration
 	cfg, err := config.Load("config.json")
@@ -61,6 +79,8 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 	log.Printf("=== Configuration Loaded ===")
+	log.Printf("User Mode: %s", cfg.UserMode)
+	log.Printf("Auth Provider: %s", cfg.Auth.Provider)
 	log.Printf("Provider Type: %s", cfg.Provider.Type)
 	log.Printf("Ollama Chat Model: %s", cfg.Provider.OllamaChatModel)
 	log.Printf("Ollama Embed Model: %s", cfg.Provider.OllamaEmbedModel)
@@ -74,7 +94,7 @@ func main() {
 	logger.Info("Starting Noodexx v%s...", version)
 
 	// Initialize store with migrations
-	st, err := store.NewStore("noodexx.db")
+	st, err := store.NewStore("noodexx.db", cfg.UserMode)
 	if err != nil {
 		logger.Error("Failed to initialize store: %v", err)
 		os.Exit(1)
@@ -113,9 +133,10 @@ func main() {
 	ingester := ingest.NewIngester(&providerAdapter{provider: provider}, st, chunker, cfg.Privacy.Enabled, cfg.Guardrails.AutoSummarize, ingestLogger)
 	logger.Info("Ingester initialized")
 
-	// Initialize skills
+	// Initialize skills with store adapter for user-scoped loading
 	skillsLogger := logging.NewLogger("skills", logging.ParseLevel(cfg.Logging.Level), logWriter)
-	skillsLoader := skills.NewLoader("skills", cfg.Privacy.Enabled, skillsLogger)
+	skillsStoreAdapter := &skillsStoreAdapter{store: st}
+	skillsLoader := skills.NewLoaderWithStore("skills", cfg.Privacy.Enabled, skillsLogger, skillsStoreAdapter)
 	loadedSkills, err := skillsLoader.LoadAll()
 	if err != nil {
 		logger.Warn("Failed to load skills: %v", err)
@@ -133,11 +154,19 @@ func main() {
 		os.Exit(1)
 	}
 	ctx := context.Background()
-	for _, folder := range cfg.Folders {
-		if err := w.AddFolder(ctx, folder); err != nil {
-			logger.Warn("Failed to add watched folder %s: %v", folder, err)
-		} else {
-			logger.Info("Watching folder: %s", folder)
+
+	// Get local-default user for backward compatibility with config-based folders
+	localDefaultUser, err := st.GetUserByUsername(ctx, "local-default")
+	if err != nil {
+		logger.Warn("Failed to get local-default user: %v", err)
+	} else {
+		// Add folders from config to local-default user
+		for _, folder := range cfg.Folders {
+			if err := w.AddFolder(ctx, localDefaultUser.ID, folder); err != nil {
+				logger.Warn("Failed to add watched folder %s: %v", folder, err)
+			} else {
+				logger.Info("Watching folder: %s", folder)
+			}
 		}
 	}
 	go w.Start(ctx)
@@ -145,6 +174,7 @@ func main() {
 	// Initialize API server with adapters
 	apiConfig := &api.ServerConfig{
 		PrivacyMode:        cfg.Privacy.Enabled,
+		UserMode:           cfg.UserMode,
 		Provider:           cfg.Provider.Type,
 		OllamaEndpoint:     cfg.Provider.OllamaEndpoint,
 		OllamaEmbedModel:   cfg.Provider.OllamaEmbedModel,
@@ -162,6 +192,13 @@ func main() {
 	apiSkillsExecutorAdapter := &apiSkillsExecutorAdapter{executor: skillsExecutor}
 	apiLoggerAdapter := &apiLoggerAdapter{logger: logger}
 
+	// Initialize auth provider
+	authLogger := logging.NewLogger("auth", logging.ParseLevel(cfg.Logging.Level), logWriter)
+	authStoreAdapter := &authStoreAdapter{store: st}
+	authProvider := &apiAuthProviderAdapter{
+		provider: initAuthProvider(authStoreAdapter, cfg, authLogger),
+	}
+
 	apiServer, err := api.NewServer(
 		apiStoreAdapter,
 		apiProviderAdapter,
@@ -171,6 +208,8 @@ func main() {
 		apiSkillsLoaderAdapter,
 		apiSkillsExecutorAdapter,
 		apiLoggerAdapter,
+		authProvider,
+		"config.json",
 	)
 	if err != nil {
 		logger.Error("Failed to initialize API server: %v", err)
@@ -182,11 +221,15 @@ func main() {
 	mux := http.NewServeMux()
 	apiServer.RegisterRoutes(mux)
 
+	// Apply authentication middleware
+	authMiddleware := auth.AuthMiddleware(authStoreAdapter, cfg.UserMode)
+	handler := authMiddleware(mux)
+
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.BindAddress, cfg.Server.Port)
 	server := &http.Server{
 		Addr:         addr,
-		Handler:      mux,
+		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -198,6 +241,23 @@ func main() {
 		log.Printf("Press Ctrl-C to quit")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("Server error: %v", err)
+		}
+	}()
+
+	// Start background job for token cleanup
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		logger.Info("Token cleanup job started (runs every hour)")
+
+		for range ticker.C {
+			ctx := context.Background()
+			if err := st.CleanupExpiredTokens(ctx); err != nil {
+				logger.Error("Failed to cleanup expired tokens: %v", err)
+			} else {
+				logger.Debug("Expired tokens cleaned up")
+			}
 		}
 	}()
 
