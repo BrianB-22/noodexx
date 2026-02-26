@@ -124,8 +124,7 @@ func TestHandleConfig_ValidationErrors(t *testing.T) {
 					OllamaChatModel:  "llama3.2",
 				},
 				Privacy: config.PrivacyConfig{
-					Enabled:        true,
-					UseLocalAI:     true,
+					DefaultToLocal:     true,
 					CloudRAGPolicy: "no_rag",
 				},
 				Logging: config.LoggingConfig{

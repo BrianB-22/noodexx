@@ -66,8 +66,8 @@ func TestMigration_OllamaToLocalProvider(t *testing.T) {
 	}
 
 	// Verify privacy settings migrated
-	if cfg.Privacy.UseLocalAI != true {
-		t.Errorf("Expected Privacy.UseLocalAI true (from old enabled=true), got %v", cfg.Privacy.UseLocalAI)
+	if cfg.Privacy.DefaultToLocal != true {
+		t.Errorf("Expected Privacy.DefaultToLocal true (from old enabled=true), got %v", cfg.Privacy.DefaultToLocal)
 	}
 	if cfg.Privacy.CloudRAGPolicy != "no_rag" {
 		t.Errorf("Expected Privacy.CloudRAGPolicy 'no_rag', got '%s'", cfg.Privacy.CloudRAGPolicy)
@@ -133,8 +133,8 @@ func TestMigration_OpenAIToCloudProvider(t *testing.T) {
 	}
 
 	// Verify privacy settings migrated
-	if cfg.Privacy.UseLocalAI != false {
-		t.Errorf("Expected Privacy.UseLocalAI false (from old enabled=false), got %v", cfg.Privacy.UseLocalAI)
+	if cfg.Privacy.DefaultToLocal != false {
+		t.Errorf("Expected Privacy.DefaultToLocal false (from old enabled=false), got %v", cfg.Privacy.DefaultToLocal)
 	}
 	if cfg.Privacy.CloudRAGPolicy != "no_rag" {
 		t.Errorf("Expected Privacy.CloudRAGPolicy 'no_rag', got '%s'", cfg.Privacy.CloudRAGPolicy)
@@ -196,8 +196,8 @@ func TestMigration_AnthropicToCloudProvider(t *testing.T) {
 	}
 
 	// Verify privacy settings migrated
-	if cfg.Privacy.UseLocalAI != false {
-		t.Errorf("Expected Privacy.UseLocalAI false (from old enabled=false), got %v", cfg.Privacy.UseLocalAI)
+	if cfg.Privacy.DefaultToLocal != false {
+		t.Errorf("Expected Privacy.DefaultToLocal false (from old enabled=false), got %v", cfg.Privacy.DefaultToLocal)
 	}
 	if cfg.Privacy.CloudRAGPolicy != "no_rag" {
 		t.Errorf("Expected Privacy.CloudRAGPolicy 'no_rag', got '%s'", cfg.Privacy.CloudRAGPolicy)
@@ -230,8 +230,7 @@ func TestMigration_NewConfigNotMigrated(t *testing.T) {
 			"openai_chat_model": "gpt-4"
 		},
 		"privacy": {
-			"enabled": true,
-			"use_local_ai": false,
+			"default_to_local": false,
 			"cloud_rag_policy": "allow_rag"
 		},
 		"folders": [],
@@ -264,8 +263,8 @@ func TestMigration_NewConfigNotMigrated(t *testing.T) {
 	if cfg.CloudProvider.Type != "openai" {
 		t.Errorf("Expected CloudProvider.Type 'openai', got '%s'", cfg.CloudProvider.Type)
 	}
-	if cfg.Privacy.UseLocalAI != false {
-		t.Errorf("Expected Privacy.UseLocalAI false, got %v", cfg.Privacy.UseLocalAI)
+	if cfg.Privacy.DefaultToLocal != false {
+		t.Errorf("Expected Privacy.DefaultToLocal false, got %v", cfg.Privacy.DefaultToLocal)
 	}
 	if cfg.Privacy.CloudRAGPolicy != "allow_rag" {
 		t.Errorf("Expected Privacy.CloudRAGPolicy 'allow_rag', got '%s'", cfg.Privacy.CloudRAGPolicy)
@@ -327,9 +326,9 @@ func TestMigration_RoundTrip(t *testing.T) {
 		t.Errorf("LocalProvider.OllamaEmbedModel mismatch: '%s' vs '%s'",
 			cfg1.LocalProvider.OllamaEmbedModel, cfg2.LocalProvider.OllamaEmbedModel)
 	}
-	if cfg1.Privacy.UseLocalAI != cfg2.Privacy.UseLocalAI {
-		t.Errorf("Privacy.UseLocalAI mismatch: %v vs %v",
-			cfg1.Privacy.UseLocalAI, cfg2.Privacy.UseLocalAI)
+	if cfg1.Privacy.DefaultToLocal != cfg2.Privacy.DefaultToLocal {
+		t.Errorf("Privacy.DefaultToLocal mismatch: %v vs %v",
+			cfg1.Privacy.DefaultToLocal, cfg2.Privacy.DefaultToLocal)
 	}
 	if cfg1.Privacy.CloudRAGPolicy != cfg2.Privacy.CloudRAGPolicy {
 		t.Errorf("Privacy.CloudRAGPolicy mismatch: '%s' vs '%s'",
@@ -355,8 +354,8 @@ func TestMigration_RoundTrip(t *testing.T) {
 		t.Error("Saved config missing 'cloud_provider' field")
 	}
 	if privacy, ok := savedConfig["privacy"].(map[string]interface{}); ok {
-		if _, ok := privacy["use_local_ai"]; !ok {
-			t.Error("Saved config missing 'privacy.use_local_ai' field")
+		if _, ok := privacy["default_to_local"]; !ok {
+			t.Error("Saved config missing 'privacy.default_to_local' field")
 		}
 		if _, ok := privacy["cloud_rag_policy"]; !ok {
 			t.Error("Saved config missing 'privacy.cloud_rag_policy' field")

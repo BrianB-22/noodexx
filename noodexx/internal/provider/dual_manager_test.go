@@ -29,7 +29,7 @@ func createDualProviderConfig() *config.Config {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 	}
@@ -48,7 +48,7 @@ func createLocalOnlyConfig() *config.Config {
 			Type: "", // Not configured
 		},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 	}
@@ -67,16 +67,16 @@ func createCloudOnlyConfig() *config.Config {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     false,
+			DefaultToLocal:     false,
 			CloudRAGPolicy: "allow_rag",
 		},
 	}
 }
 
-// TestGetActiveProvider_LocalMode tests GetActiveProvider returns local provider when UseLocalAI is true
+// TestGetActiveProvider_LocalMode tests GetActiveProvider returns local provider when DefaultToLocal is true
 func TestGetActiveProvider_LocalMode(t *testing.T) {
 	cfg := createDualProviderConfig()
-	cfg.Privacy.UseLocalAI = true
+	cfg.Privacy.DefaultToLocal = true
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -98,14 +98,14 @@ func TestGetActiveProvider_LocalMode(t *testing.T) {
 		t.Fatal("Local provider should be initialized")
 	}
 	if provider != manager.localProvider {
-		t.Error("GetActiveProvider() should return local provider when UseLocalAI is true")
+		t.Error("GetActiveProvider() should return local provider when DefaultToLocal is true")
 	}
 }
 
-// TestGetActiveProvider_CloudMode tests GetActiveProvider returns cloud provider when UseLocalAI is false
+// TestGetActiveProvider_CloudMode tests GetActiveProvider returns cloud provider when DefaultToLocal is false
 func TestGetActiveProvider_CloudMode(t *testing.T) {
 	cfg := createDualProviderConfig()
-	cfg.Privacy.UseLocalAI = false
+	cfg.Privacy.DefaultToLocal = false
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -127,14 +127,14 @@ func TestGetActiveProvider_CloudMode(t *testing.T) {
 		t.Fatal("Cloud provider should be initialized")
 	}
 	if provider != manager.cloudProvider {
-		t.Error("GetActiveProvider() should return cloud provider when UseLocalAI is false")
+		t.Error("GetActiveProvider() should return cloud provider when DefaultToLocal is false")
 	}
 }
 
 // TestGetActiveProvider_UnconfiguredLocalProvider tests error when local provider is not configured
 func TestGetActiveProvider_UnconfiguredLocalProvider(t *testing.T) {
 	cfg := createCloudOnlyConfig()
-	cfg.Privacy.UseLocalAI = true // Try to use local, but it's not configured
+	cfg.Privacy.DefaultToLocal = true // Try to use local, but it's not configured
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -160,7 +160,7 @@ func TestGetActiveProvider_UnconfiguredLocalProvider(t *testing.T) {
 // TestGetActiveProvider_UnconfiguredCloudProvider tests error when cloud provider is not configured
 func TestGetActiveProvider_UnconfiguredCloudProvider(t *testing.T) {
 	cfg := createLocalOnlyConfig()
-	cfg.Privacy.UseLocalAI = false // Try to use cloud, but it's not configured
+	cfg.Privacy.DefaultToLocal = false // Try to use cloud, but it's not configured
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -183,10 +183,10 @@ func TestGetActiveProvider_UnconfiguredCloudProvider(t *testing.T) {
 	}
 }
 
-// TestIsLocalMode_LocalEnabled tests IsLocalMode returns true when UseLocalAI is true
+// TestIsLocalMode_LocalEnabled tests IsLocalMode returns true when DefaultToLocal is true
 func TestIsLocalMode_LocalEnabled(t *testing.T) {
 	cfg := createDualProviderConfig()
-	cfg.Privacy.UseLocalAI = true
+	cfg.Privacy.DefaultToLocal = true
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -195,14 +195,14 @@ func TestIsLocalMode_LocalEnabled(t *testing.T) {
 	}
 
 	if !manager.IsLocalMode() {
-		t.Error("IsLocalMode() should return true when UseLocalAI is true")
+		t.Error("IsLocalMode() should return true when DefaultToLocal is true")
 	}
 }
 
-// TestIsLocalMode_CloudEnabled tests IsLocalMode returns false when UseLocalAI is false
+// TestIsLocalMode_CloudEnabled tests IsLocalMode returns false when DefaultToLocal is false
 func TestIsLocalMode_CloudEnabled(t *testing.T) {
 	cfg := createDualProviderConfig()
-	cfg.Privacy.UseLocalAI = false
+	cfg.Privacy.DefaultToLocal = false
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -211,14 +211,14 @@ func TestIsLocalMode_CloudEnabled(t *testing.T) {
 	}
 
 	if manager.IsLocalMode() {
-		t.Error("IsLocalMode() should return false when UseLocalAI is false")
+		t.Error("IsLocalMode() should return false when DefaultToLocal is false")
 	}
 }
 
 // TestGetProviderName_LocalOllama tests GetProviderName returns correct name for local Ollama
 func TestGetProviderName_LocalOllama(t *testing.T) {
 	cfg := createDualProviderConfig()
-	cfg.Privacy.UseLocalAI = true
+	cfg.Privacy.DefaultToLocal = true
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -236,7 +236,7 @@ func TestGetProviderName_LocalOllama(t *testing.T) {
 // TestGetProviderName_CloudOpenAI tests GetProviderName returns correct name for cloud OpenAI
 func TestGetProviderName_CloudOpenAI(t *testing.T) {
 	cfg := createDualProviderConfig()
-	cfg.Privacy.UseLocalAI = false
+	cfg.Privacy.DefaultToLocal = false
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -257,7 +257,7 @@ func TestGetProviderName_CloudAnthropic(t *testing.T) {
 	cfg.CloudProvider.Type = "anthropic"
 	cfg.CloudProvider.AnthropicKey = "test-key"
 	cfg.CloudProvider.AnthropicChatModel = "claude-3-opus"
-	cfg.Privacy.UseLocalAI = false
+	cfg.Privacy.DefaultToLocal = false
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -275,7 +275,7 @@ func TestGetProviderName_CloudAnthropic(t *testing.T) {
 // TestGetProviderName_UnconfiguredLocal tests GetProviderName when local provider is not configured
 func TestGetProviderName_UnconfiguredLocal(t *testing.T) {
 	cfg := createCloudOnlyConfig()
-	cfg.Privacy.UseLocalAI = true // Try to use local, but it's not configured
+	cfg.Privacy.DefaultToLocal = true // Try to use local, but it's not configured
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -293,7 +293,7 @@ func TestGetProviderName_UnconfiguredLocal(t *testing.T) {
 // TestGetProviderName_UnconfiguredCloud tests GetProviderName when cloud provider is not configured
 func TestGetProviderName_UnconfiguredCloud(t *testing.T) {
 	cfg := createLocalOnlyConfig()
-	cfg.Privacy.UseLocalAI = false // Try to use cloud, but it's not configured
+	cfg.Privacy.DefaultToLocal = false // Try to use cloud, but it's not configured
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -312,7 +312,7 @@ func TestGetProviderName_UnconfiguredCloud(t *testing.T) {
 func TestGetProviderName_CloudOpenAIWithoutModel(t *testing.T) {
 	cfg := createDualProviderConfig()
 	cfg.CloudProvider.OpenAIChatModel = "" // No model specified
-	cfg.Privacy.UseLocalAI = false
+	cfg.Privacy.DefaultToLocal = false
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -460,7 +460,7 @@ func TestReload_RemoveBothProviders(t *testing.T) {
 		LocalProvider: config.ProviderConfig{Type: ""},
 		CloudProvider: config.ProviderConfig{Type: ""},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 	}
@@ -513,7 +513,7 @@ func TestReload_SwitchProviderTypes(t *testing.T) {
 // TestReload_UpdatePrivacySettings tests Reload updates privacy settings
 func TestReload_UpdatePrivacySettings(t *testing.T) {
 	cfg := createDualProviderConfig()
-	cfg.Privacy.UseLocalAI = true
+	cfg.Privacy.DefaultToLocal = true
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
@@ -523,7 +523,7 @@ func TestReload_UpdatePrivacySettings(t *testing.T) {
 
 	// Update privacy settings
 	newCfg := createDualProviderConfig()
-	newCfg.Privacy.UseLocalAI = false
+	newCfg.Privacy.DefaultToLocal = false
 	newCfg.Privacy.CloudRAGPolicy = "allow_rag"
 
 	err = manager.Reload(newCfg)
@@ -532,8 +532,8 @@ func TestReload_UpdatePrivacySettings(t *testing.T) {
 	}
 
 	// Verify privacy settings were updated
-	if manager.config.Privacy.UseLocalAI != false {
-		t.Error("Expected UseLocalAI to be false after reload")
+	if manager.config.Privacy.DefaultToLocal != false {
+		t.Error("Expected DefaultToLocal to be false after reload")
 	}
 	if manager.config.Privacy.CloudRAGPolicy != "allow_rag" {
 		t.Errorf("Expected CloudRAGPolicy 'allow_rag', got '%s'", manager.config.Privacy.CloudRAGPolicy)

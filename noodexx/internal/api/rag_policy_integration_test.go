@@ -41,7 +41,7 @@ func TestRAGPolicyEnforcementFlow_CompleteIntegration(t *testing.T) {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     false, // Start in cloud mode
+			DefaultToLocal:     false, // Start in cloud mode
 			CloudRAGPolicy: "no_rag",
 		},
 		Server: config.ServerConfig{

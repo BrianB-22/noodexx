@@ -12,8 +12,7 @@
     "openai_chat_model": "gpt-4"
   },
   "privacy": {
-    "enabled": false,
-    "use_local_ai": true,
+    "default_to_local": true,
     "cloud_rag_policy": "no_rag"
   },
   "folders": [

@@ -81,7 +81,7 @@ func TestHandlePrivacyToggle_TogglingToLocal(t *testing.T) {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     false, // Start in cloud mode
+			DefaultToLocal:     false, // Start in cloud mode
 			CloudRAGPolicy: "no_rag",
 		},
 		Server: config.ServerConfig{
@@ -154,8 +154,8 @@ func TestHandlePrivacyToggle_TogglingToLocal(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	if !loadedCfg.Privacy.UseLocalAI {
-		t.Errorf("Expected UseLocalAI=true, got false")
+	if !loadedCfg.Privacy.DefaultToLocal {
+		t.Errorf("Expected DefaultToLocal=true, got false")
 	}
 }
 
@@ -186,7 +186,7 @@ func TestHandlePrivacyToggle_TogglingToCloud(t *testing.T) {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     true, // Start in local mode
+			DefaultToLocal:     true, // Start in local mode
 			CloudRAGPolicy: "allow_rag",
 		},
 		Server: config.ServerConfig{
@@ -255,8 +255,8 @@ func TestHandlePrivacyToggle_TogglingToCloud(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	if loadedCfg.Privacy.UseLocalAI {
-		t.Errorf("Expected UseLocalAI=false, got true")
+	if loadedCfg.Privacy.DefaultToLocal {
+		t.Errorf("Expected DefaultToLocal=false, got true")
 	}
 }
 
@@ -275,7 +275,7 @@ func TestHandlePrivacyToggle_InvalidMode(t *testing.T) {
 			Type: "ollama",
 		},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Server: config.ServerConfig{
@@ -382,7 +382,7 @@ func TestHandlePrivacyToggle_ResponseTime(t *testing.T) {
 			Type: "ollama",
 		},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     false,
+			DefaultToLocal:     false,
 			CloudRAGPolicy: "no_rag",
 		},
 		Server: config.ServerConfig{

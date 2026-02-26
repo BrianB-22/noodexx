@@ -19,7 +19,6 @@ func TestInitializeLogging(t *testing.T) {
 			cfg: &config.Config{
 				Logging: config.LoggingConfig{
 					Level:        "info",
-					DebugEnabled: true,
 					File:         "test_debug.log",
 					MaxSizeMB:    10,
 					MaxBackups:   3,
@@ -33,7 +32,6 @@ func TestInitializeLogging(t *testing.T) {
 			cfg: &config.Config{
 				Logging: config.LoggingConfig{
 					Level:        "info",
-					DebugEnabled: false,
 					File:         "",
 					MaxSizeMB:    10,
 					MaxBackups:   3,
@@ -47,7 +45,6 @@ func TestInitializeLogging(t *testing.T) {
 			cfg: &config.Config{
 				Logging: config.LoggingConfig{
 					Level:        "info",
-					DebugEnabled: true,
 					File:         "/invalid/path/debug.log",
 					MaxSizeMB:    10,
 					MaxBackups:   3,

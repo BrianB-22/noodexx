@@ -42,7 +42,7 @@ func TestProviderSwitchFlow_CompleteIntegration(t *testing.T) {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     true, // Start in local mode
+			DefaultToLocal:     true, // Start in local mode
 			CloudRAGPolicy: "allow_rag",
 		},
 		Server: config.ServerConfig{
@@ -214,8 +214,8 @@ func TestProviderSwitchFlow_CompleteIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to load config: %v", err)
 		}
-		if loadedCfg.Privacy.UseLocalAI {
-			t.Error("Expected UseLocalAI=false after toggle to cloud")
+		if loadedCfg.Privacy.DefaultToLocal {
+			t.Error("Expected DefaultToLocal=false after toggle to cloud")
 		}
 	})
 
@@ -300,8 +300,8 @@ func TestProviderSwitchFlow_CompleteIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to load config: %v", err)
 		}
-		if !loadedCfg.Privacy.UseLocalAI {
-			t.Error("Expected UseLocalAI=true after toggle to local")
+		if !loadedCfg.Privacy.DefaultToLocal {
+			t.Error("Expected DefaultToLocal=true after toggle to local")
 		}
 	})
 

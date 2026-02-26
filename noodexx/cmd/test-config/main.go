@@ -15,7 +15,7 @@ func main() {
 
 	fmt.Println("Configuration loaded successfully!")
 	fmt.Printf("Provider: %s\n", cfg.Provider.Type)
-	fmt.Printf("Privacy Mode: %v\n", cfg.Privacy.Enabled)
+	fmt.Printf("Default To Local: %v\n", cfg.Privacy.DefaultToLocal)
 	fmt.Printf("Server Port: %d\n", cfg.Server.Port)
 	fmt.Printf("Server Bind Address: %s\n", cfg.Server.BindAddress)
 	fmt.Printf("Log Level: %s\n", cfg.Logging.Level)

@@ -23,13 +23,13 @@ func NewRAGPolicyEnforcer(cfg *config.Config, logger *logging.Logger) *RAGPolicy
 
 // ShouldPerformRAG returns true if RAG should be executed for the current request.
 // Decision logic:
-// - If using local AI (Privacy.UseLocalAI == true): always perform RAG
-// - If using cloud AI (Privacy.UseLocalAI == false):
+// - If using local AI (Privacy.DefaultToLocal == true): always perform RAG
+// - If using cloud AI (Privacy.DefaultToLocal == false):
 //   - If CloudRAGPolicy == "allow_rag": perform RAG
 //   - If CloudRAGPolicy == "no_rag": do NOT perform RAG
 func (e *RAGPolicyEnforcer) ShouldPerformRAG() bool {
 	// Local AI mode: always perform RAG
-	if e.config.Privacy.UseLocalAI {
+	if e.config.Privacy.DefaultToLocal {
 		e.logger.Debug("RAG enabled: using local AI provider")
 		return true
 	}
@@ -51,7 +51,7 @@ func (e *RAGPolicyEnforcer) ShouldPerformRAG() bool {
 // - "RAG Disabled (Cloud Policy)" - when using cloud AI with no_rag policy
 func (e *RAGPolicyEnforcer) GetRAGStatus() string {
 	// Local AI mode: always enabled
-	if e.config.Privacy.UseLocalAI {
+	if e.config.Privacy.DefaultToLocal {
 		return "RAG Enabled (Local)"
 	}
 

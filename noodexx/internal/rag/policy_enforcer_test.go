@@ -17,7 +17,7 @@ func createTestLogger() *logging.Logger {
 func createTestConfig(useLocalAI bool, cloudRAGPolicy string) *config.Config {
 	return &config.Config{
 		Privacy: config.PrivacyConfig{
-			UseLocalAI:     useLocalAI,
+			DefaultToLocal:     useLocalAI,
 			CloudRAGPolicy: cloudRAGPolicy,
 		},
 	}

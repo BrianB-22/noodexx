@@ -10,11 +10,11 @@ import (
 // DualProviderManager manages two provider instances (local and cloud)
 // and routes requests based on privacy toggle state
 type DualProviderManager struct {
-	localProvider llm.Provider
-	cloudProvider llm.Provider
-	config        *config.Config
-	logger        *logging.Logger
-	useLocalAI    bool // Internal state for provider selection
+	localProvider  llm.Provider
+	cloudProvider  llm.Provider
+	config         *config.Config
+	logger         *logging.Logger
+	defaultToLocal bool // Internal state for provider selection
 }
 
 // NewDualProviderManager creates a manager with both providers
@@ -22,9 +22,9 @@ type DualProviderManager struct {
 // Returns error if neither provider is configured
 func NewDualProviderManager(cfg *config.Config, logger *logging.Logger) (*DualProviderManager, error) {
 	manager := &DualProviderManager{
-		config:     cfg,
-		logger:     logger,
-		useLocalAI: cfg.Privacy.UseLocalAI, // Initialize from config
+		config:         cfg,
+		logger:         logger,
+		defaultToLocal: cfg.Privacy.DefaultToLocal, // Initialize from config
 	}
 
 	// Initialize local provider if configured
@@ -84,9 +84,9 @@ func NewDualProviderManager(cfg *config.Config, logger *logging.Logger) (*DualPr
 // GetActiveProvider returns the currently active provider based on privacy toggle state
 // Returns error if the active provider is not configured
 func (m *DualProviderManager) GetActiveProvider() (llm.Provider, error) {
-	m.logger.Debug("GetActiveProvider called: useLocalAI=%v", m.useLocalAI)
+	m.logger.Debug("GetActiveProvider called: defaultToLocal=%v", m.defaultToLocal)
 
-	if m.useLocalAI {
+	if m.defaultToLocal {
 		// Local mode - return local provider
 		if m.localProvider == nil {
 			return nil, fmt.Errorf("local provider not configured")
@@ -115,13 +115,13 @@ func (m *DualProviderManager) GetCloudProvider() llm.Provider {
 
 // IsLocalMode returns true if privacy toggle is set to local AI
 func (m *DualProviderManager) IsLocalMode() bool {
-	return m.useLocalAI
+	return m.defaultToLocal
 }
 
 // GetProviderName returns the name of the active provider for UI display
 // Returns a human-readable name like "Local AI (Ollama)" or "Cloud AI (GPT-4)"
 func (m *DualProviderManager) GetProviderName() string {
-	if m.useLocalAI {
+	if m.defaultToLocal {
 		// Local mode
 		if m.localProvider == nil {
 			return "Local AI (Not Configured)"
@@ -157,9 +157,9 @@ func (m *DualProviderManager) GetProviderName() string {
 // based on the new configuration. It handles provider initialization errors gracefully
 // by logging them and continuing with the providers that can be initialized.
 func (m *DualProviderManager) Reload(cfg *config.Config) error {
-	m.logger.Info("Reloading provider configuration: UseLocalAI=%v", cfg.Privacy.UseLocalAI)
+	m.logger.Info("Reloading provider configuration: DefaultToLocal=%v", cfg.Privacy.DefaultToLocal)
 	m.config = cfg
-	m.useLocalAI = cfg.Privacy.UseLocalAI // Update internal state
+	m.defaultToLocal = cfg.Privacy.DefaultToLocal // Update internal state
 
 	// Reinitialize local provider if configured
 	if cfg.LocalProvider.Type != "" {

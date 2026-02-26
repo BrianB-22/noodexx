@@ -129,7 +129,7 @@ func main() {
 	}
 
 	log.Printf("--- Privacy Settings ---")
-	if cfg.Privacy.UseLocalAI {
+	if cfg.Privacy.DefaultToLocal {
 		log.Printf("Default Provider: %s🟢%s Local AI", colorGreen, colorReset)
 	} else {
 		log.Printf("Default Provider: %s🔴%s Cloud AI", colorRed, colorReset)
@@ -177,25 +177,25 @@ func main() {
 
 	// Initialize ingester
 	ingestLogger := logging.NewLogger("ingest", logging.ParseLevel(cfg.Logging.Level), logWriter)
-	ingester := ingest.NewIngester(&providerAdapter{provider: provider}, st, chunker, cfg.Privacy.Enabled, cfg.Guardrails.AutoSummarize, ingestLogger)
+	ingester := ingest.NewIngester(&providerAdapter{provider: provider}, st, chunker, false, cfg.Guardrails.AutoSummarize, ingestLogger)
 	logger.Info("Ingester initialized")
 
 	// Initialize skills with store adapter for user-scoped loading
 	skillsLogger := logging.NewLogger("skills", logging.ParseLevel(cfg.Logging.Level), logWriter)
 	skillsStoreAdapter := &skillsStoreAdapter{store: st}
-	skillsLoader := skills.NewLoaderWithStore("skills", cfg.Privacy.Enabled, skillsLogger, skillsStoreAdapter)
+	skillsLoader := skills.NewLoaderWithStore("skills", false, skillsLogger, skillsStoreAdapter)
 	loadedSkills, err := skillsLoader.LoadAll()
 	if err != nil {
 		logger.Warn("Failed to load skills: %v", err)
 	} else {
 		logger.Info("Loaded %d skills", len(loadedSkills))
 	}
-	skillsExecutor := skills.NewExecutor(cfg.Privacy.Enabled, skillsLogger)
+	skillsExecutor := skills.NewExecutor(false, skillsLogger)
 
 	// Initialize folder watcher with adapter
 	watcherLogger := logging.NewLogger("watcher", logging.ParseLevel(cfg.Logging.Level), logWriter)
 	watcherStore := &watcherStoreAdapter{store: st}
-	w, err := watcher.NewWatcher(ingester, watcherStore, cfg.Privacy.Enabled, watcherLogger)
+	w, err := watcher.NewWatcher(ingester, watcherStore, false, watcherLogger)
 	if err != nil {
 		logger.Error("Failed to initialize watcher: %v", err)
 		os.Exit(1)
@@ -220,7 +220,7 @@ func main() {
 
 	// Initialize API server with adapters
 	apiConfig := &api.ServerConfig{
-		PrivacyMode:        cfg.Privacy.Enabled,
+		PrivacyMode:        false,
 		UserMode:           cfg.UserMode,
 		Provider:           cfg.Provider.Type,
 		OllamaEndpoint:     cfg.Provider.OllamaEndpoint,

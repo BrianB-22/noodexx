@@ -188,8 +188,7 @@ func TestErrorHandling_InvalidLocalProviderConfiguration(t *testing.T) {
 					OllamaChatModel:  "llama3.2",
 				},
 				Privacy: config.PrivacyConfig{
-					Enabled:        true,
-					UseLocalAI:     true,
+					DefaultToLocal:     true,
 					CloudRAGPolicy: "no_rag",
 				},
 				Logging: config.LoggingConfig{
@@ -324,8 +323,7 @@ func TestErrorHandling_InvalidCloudProviderConfiguration(t *testing.T) {
 					OllamaChatModel:  "llama3.2",
 				},
 				Privacy: config.PrivacyConfig{
-					Enabled:        true,
-					UseLocalAI:     true,
+					DefaultToLocal:     true,
 					CloudRAGPolicy: "no_rag",
 				},
 				Logging: config.LoggingConfig{
@@ -400,8 +398,7 @@ func TestErrorHandling_InvalidRAGPolicy(t *testing.T) {
 			OllamaChatModel:  "llama3.2",
 		},
 		Privacy: config.PrivacyConfig{
-			Enabled:        true,
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Logging: config.LoggingConfig{
@@ -479,8 +476,7 @@ func TestErrorHandling_ErrorRecovery(t *testing.T) {
 			OllamaChatModel:  "llama3.2",
 		},
 		Privacy: config.PrivacyConfig{
-			Enabled:        true,
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Logging: config.LoggingConfig{

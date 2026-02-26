@@ -21,8 +21,8 @@ func TestLoad_DefaultConfig(t *testing.T) {
 	if cfg.Provider.Type != "ollama" {
 		t.Errorf("Expected provider type 'ollama', got '%s'", cfg.Provider.Type)
 	}
-	if cfg.Privacy.Enabled != true {
-		t.Errorf("Expected privacy mode enabled by default")
+	if cfg.Privacy.DefaultToLocal != true {
+		t.Errorf("Expected default_to_local enabled by default")
 	}
 	if cfg.Server.Port != 8080 {
 		t.Errorf("Expected port 8080, got %d", cfg.Server.Port)
@@ -67,9 +67,7 @@ func TestLoad_ExistingConfig(t *testing.T) {
 			OllamaEmbedModel: "custom-model",
 			OllamaChatModel:  "custom-chat",
 		},
-		Privacy: PrivacyConfig{
-			Enabled: true,
-		},
+		Privacy: PrivacyConfig{},
 		Folders: []string{},
 		Logging: LoggingConfig{
 			Level: "debug",
@@ -183,7 +181,7 @@ func TestValidate_PrivacyMode(t *testing.T) {
 					Type:           "ollama",
 					OllamaEndpoint: "http://localhost:11434",
 				},
-				Privacy:    PrivacyConfig{Enabled: true},
+				Privacy:    PrivacyConfig{DefaultToLocal: true},
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
@@ -204,7 +202,7 @@ func TestValidate_PrivacyMode(t *testing.T) {
 					Type:      "openai",
 					OpenAIKey: "test-key",
 				},
-				Privacy:    PrivacyConfig{Enabled: true},
+				Privacy:    PrivacyConfig{DefaultToLocal: true},
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
@@ -225,7 +223,7 @@ func TestValidate_PrivacyMode(t *testing.T) {
 					Type:           "ollama",
 					OllamaEndpoint: "http://192.168.1.100:11434",
 				},
-				Privacy:    PrivacyConfig{Enabled: true},
+				Privacy:    PrivacyConfig{DefaultToLocal: true},
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
@@ -266,7 +264,7 @@ func TestValidate_ProviderRequirements(t *testing.T) {
 				Provider: ProviderConfig{
 					Type: "openai",
 				},
-				Privacy:    PrivacyConfig{Enabled: false},
+				Privacy:    PrivacyConfig{DefaultToLocal: false},
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
@@ -286,7 +284,7 @@ func TestValidate_ProviderRequirements(t *testing.T) {
 				Provider: ProviderConfig{
 					Type: "anthropic",
 				},
-				Privacy:    PrivacyConfig{Enabled: false},
+				Privacy:    PrivacyConfig{DefaultToLocal: false},
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
@@ -306,7 +304,7 @@ func TestValidate_ProviderRequirements(t *testing.T) {
 				Provider: ProviderConfig{
 					Type: "unknown",
 				},
-				Privacy:    PrivacyConfig{Enabled: false},
+				Privacy:    PrivacyConfig{DefaultToLocal: false},
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
@@ -345,7 +343,7 @@ func TestSave(t *testing.T) {
 			OllamaEndpoint:   "http://localhost:11434",
 			OllamaEmbedModel: "test-model",
 		},
-		Privacy: PrivacyConfig{Enabled: true},
+		Privacy:    PrivacyConfig{DefaultToLocal: true},
 		Folders: []string{"/test/path"},
 		Logging: LoggingConfig{Level: "info"},
 		Guardrails: GuardrailsConfig{
@@ -474,13 +472,12 @@ func TestValidate_LogLevel(t *testing.T) {
 					Type:           "ollama",
 					OllamaEndpoint: "http://localhost:11434",
 				},
-				Privacy: PrivacyConfig{Enabled: true},
+				Privacy:    PrivacyConfig{DefaultToLocal: true},
 				Logging: LoggingConfig{
-					Level:        tt.level,
-					DebugEnabled: true,
-					File:         "debug.log",
-					MaxSizeMB:    10,
-					MaxBackups:   3,
+					Level:      tt.level,
+					File:       "debug.log",
+					MaxSizeMB:  10,
+					MaxBackups: 3,
 				},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
@@ -582,7 +579,7 @@ func TestValidate_UserMode(t *testing.T) {
 					Type:           "ollama",
 					OllamaEndpoint: "http://localhost:11434",
 				},
-				Privacy:    PrivacyConfig{Enabled: true},
+				Privacy:    PrivacyConfig{DefaultToLocal: true},
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
@@ -626,7 +623,7 @@ func TestValidate_AuthProvider(t *testing.T) {
 					Type:           "ollama",
 					OllamaEndpoint: "http://localhost:11434",
 				},
-				Privacy:    PrivacyConfig{Enabled: true},
+				Privacy:    PrivacyConfig{DefaultToLocal: true},
 				Logging:    LoggingConfig{Level: "info"},
 				Guardrails: GuardrailsConfig{PIIDetection: "normal"},
 				Server:     ServerConfig{Port: 8080},
@@ -894,7 +891,7 @@ func TestPrivacyConfig_ValidateRAGPolicy(t *testing.T) {
 		{
 			name: "Valid no_rag policy",
 			cfg: PrivacyConfig{
-				UseLocalAI:     true,
+				DefaultToLocal: true,
 				CloudRAGPolicy: "no_rag",
 			},
 			expectError: false,
@@ -902,7 +899,7 @@ func TestPrivacyConfig_ValidateRAGPolicy(t *testing.T) {
 		{
 			name: "Valid allow_rag policy",
 			cfg: PrivacyConfig{
-				UseLocalAI:     false,
+				DefaultToLocal: false,
 				CloudRAGPolicy: "allow_rag",
 			},
 			expectError: false,
@@ -910,7 +907,7 @@ func TestPrivacyConfig_ValidateRAGPolicy(t *testing.T) {
 		{
 			name: "Invalid RAG policy",
 			cfg: PrivacyConfig{
-				UseLocalAI:     true,
+				DefaultToLocal: true,
 				CloudRAGPolicy: "invalid",
 			},
 			expectError: true,
@@ -919,7 +916,7 @@ func TestPrivacyConfig_ValidateRAGPolicy(t *testing.T) {
 		{
 			name: "Empty RAG policy",
 			cfg: PrivacyConfig{
-				UseLocalAI:     true,
+				DefaultToLocal: true,
 				CloudRAGPolicy: "",
 			},
 			expectError: true,
@@ -928,7 +925,7 @@ func TestPrivacyConfig_ValidateRAGPolicy(t *testing.T) {
 		{
 			name: "Case-sensitive validation",
 			cfg: PrivacyConfig{
-				UseLocalAI:     true,
+				DefaultToLocal: true,
 				CloudRAGPolicy: "NO_RAG",
 			},
 			expectError: true,

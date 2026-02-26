@@ -800,7 +800,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	// Create nested config structure that matches template expectations
 	configData := map[string]interface{}{
 		"Privacy": map[string]interface{}{
-			"UseLocalAI":     cfg.Privacy.UseLocalAI,
+			"DefaultToLocal": cfg.Privacy.DefaultToLocal,
 			"CloudRAGPolicy": cfg.Privacy.CloudRAGPolicy,
 		},
 		"LocalProvider": map[string]interface{}{
@@ -830,7 +830,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
 		"Title":       "Settings",
 		"Page":        "settings",
-		"PrivacyMode": cfg.Privacy.Enabled,
+		"PrivacyMode": false,
 		"Config":      configData,
 	}
 
@@ -926,13 +926,13 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		s.logger.Debug("Cloud Anthropic chat model: %s", v)
 	}
 
-	// Parse privacy toggle state (use_local_ai)
-	useLocalAI := r.FormValue("use_local_ai")
-	if useLocalAI == "true" || useLocalAI == "on" {
-		cfg.Privacy.UseLocalAI = true
+	// Parse privacy toggle state (default_to_local)
+	defaultToLocal := r.FormValue("default_to_local")
+	if defaultToLocal == "true" || defaultToLocal == "on" {
+		cfg.Privacy.DefaultToLocal = true
 		s.logger.Debug("Privacy toggle: use local AI")
-	} else if useLocalAI == "false" || useLocalAI == "" {
-		cfg.Privacy.UseLocalAI = false
+	} else if defaultToLocal == "false" || defaultToLocal == "" {
+		cfg.Privacy.DefaultToLocal = false
 		s.logger.Debug("Privacy toggle: use cloud AI")
 	}
 
@@ -2176,10 +2176,10 @@ func (s *Server) handlePrivacyToggle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update privacy toggle state based on mode
-	useLocalAI := req.Mode == "local"
-	cfg.Privacy.UseLocalAI = useLocalAI
+	defaultToLocal := req.Mode == "local"
+	cfg.Privacy.DefaultToLocal = defaultToLocal
 
-	logger.Debug("updating privacy toggle", "use_local_ai", useLocalAI)
+	logger.Debug("updating privacy toggle", "default_to_local", defaultToLocal)
 
 	// Save configuration to disk
 	if err := cfg.Save(s.configPath); err != nil {

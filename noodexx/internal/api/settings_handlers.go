@@ -33,17 +33,10 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.logger.Debug("Current config loaded, privacy=%v, folders=%v", cfg.Privacy.Enabled, cfg.Folders)
+	s.logger.Debug("Current config loaded, folders=%v", cfg.Folders)
 
-	// Update privacy mode
-	privacyValue := r.FormValue("privacy_enabled")
-	s.logger.Debug("Privacy mode form value: '%s'", privacyValue)
-	if privacyValue == "on" {
-		cfg.Privacy.Enabled = true
-	} else {
-		cfg.Privacy.Enabled = false
-	}
-	s.logger.Debug("Privacy mode updated to: %v", cfg.Privacy.Enabled)
+	// Update privacy mode (legacy - no longer used)
+	// Privacy mode is now controlled via DefaultToLocal in dual-provider system
 
 	// Update provider settings
 	providerType := r.FormValue("provider_type")
@@ -161,7 +154,7 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.logger.Info("Settings saved successfully to %s", s.configPath)
-	s.logger.Debug("Saved config: privacy=%v, folders=%v", cfg.Privacy.Enabled, cfg.Folders)
+	s.logger.Debug("Saved config: folders=%v", cfg.Folders)
 
 	// Return success with restart message
 	w.Header().Set("Content-Type", "application/json")
@@ -200,8 +193,8 @@ func (s *Server) handlePrivacyMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update privacy mode
-	cfg.Privacy.Enabled = req.Enabled
+	// Legacy endpoint - privacy mode is now controlled via DefaultToLocal
+	// This endpoint is deprecated and should not be used
 
 	// Determine which provider to use based on privacy mode
 	var providerType string

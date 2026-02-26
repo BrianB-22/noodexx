@@ -26,9 +26,9 @@
             
             <div class="form-group">
                 <label for="defaultProvider">Default Provider</label>
-                <select id="defaultProvider" name="use_local_ai" onchange="updateDefaultProvider()">
-                    <option value="true" {{if .Config.Privacy.UseLocalAI}}selected{{end}}>🔒 Local AI (Ollama)</option>
-                    <option value="false" {{if not .Config.Privacy.UseLocalAI}}selected{{end}}>☁️ Cloud AI (OpenAI/Anthropic)</option>
+                <select id="defaultProvider" name="default_to_local" onchange="updateDefaultProvider()">
+                    <option value="true" {{if .Config.Privacy.DefaultToLocal}}selected{{end}}>🔒 Local AI (Ollama)</option>
+                    <option value="false" {{if not .Config.Privacy.DefaultToLocal}}selected{{end}}>☁️ Cloud AI (OpenAI/Anthropic)</option>
                 </select>
                 <small class="form-hint">Choose which provider to use by default. You can switch between them anytime using the privacy toggle in the chat interface.</small>
             </div>
@@ -558,7 +558,7 @@ async function saveSettings() {
     }
     
     // Add privacy settings
-    params.set('use_local_ai', useLocalAI);
+    params.set('default_to_local', useLocalAI);
     if (cloudRagPolicy) {
         params.set('cloud_rag_policy', cloudRagPolicy);
     }

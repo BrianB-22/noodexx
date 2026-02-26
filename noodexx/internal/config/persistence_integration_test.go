@@ -34,14 +34,12 @@ func TestSettingsPersistence_CompleteFlow(t *testing.T) {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: PrivacyConfig{
-			Enabled:        true,
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Folders: []string{"/test/folder1", "/test/folder2"},
 		Logging: LoggingConfig{
 			Level:        "debug",
-			DebugEnabled: true,
 			File:         "test.log",
 			MaxSizeMB:    20,
 			MaxBackups:   5,
@@ -128,8 +126,8 @@ func TestSettingsPersistence_CompleteFlow(t *testing.T) {
 
 	// Verify Privacy Toggle state (Requirement 9.4)
 	t.Run("PrivacyToggle persistence", func(t *testing.T) {
-		if loadedCfg.Privacy.UseLocalAI != true {
-			t.Errorf("Privacy.UseLocalAI: expected true, got %v", loadedCfg.Privacy.UseLocalAI)
+		if loadedCfg.Privacy.DefaultToLocal != true {
+			t.Errorf("Privacy.DefaultToLocal: expected true, got %v", loadedCfg.Privacy.DefaultToLocal)
 		}
 	})
 
@@ -232,8 +230,7 @@ func TestSettingsPersistence_AnthropicProvider(t *testing.T) {
 			AnthropicChatModel: "claude-3-opus-20240229",
 		},
 		Privacy: PrivacyConfig{
-			Enabled:        true,
-			UseLocalAI:     false,
+			DefaultToLocal:     false,
 			CloudRAGPolicy: "allow_rag",
 		},
 		Logging: LoggingConfig{
@@ -277,8 +274,8 @@ func TestSettingsPersistence_AnthropicProvider(t *testing.T) {
 	}
 
 	// Verify privacy settings
-	if loadedCfg.Privacy.UseLocalAI != false {
-		t.Errorf("Privacy.UseLocalAI: expected false, got %v", loadedCfg.Privacy.UseLocalAI)
+	if loadedCfg.Privacy.DefaultToLocal != false {
+		t.Errorf("Privacy.DefaultToLocal: expected false, got %v", loadedCfg.Privacy.DefaultToLocal)
 	}
 	if loadedCfg.Privacy.CloudRAGPolicy != "allow_rag" {
 		t.Errorf("Privacy.CloudRAGPolicy: expected 'allow_rag', got '%s'", loadedCfg.Privacy.CloudRAGPolicy)
@@ -311,8 +308,7 @@ func TestSettingsPersistence_MultipleReloads(t *testing.T) {
 			OpenAIChatModel:  "chat-v1",
 		},
 		Privacy: PrivacyConfig{
-			Enabled:        true,
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Logging: LoggingConfig{
@@ -402,8 +398,7 @@ func TestSettingsPersistence_EmptyProviders(t *testing.T) {
 			Type: "", // Not configured
 		},
 		Privacy: PrivacyConfig{
-			Enabled:        true,
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Logging: LoggingConfig{
@@ -449,8 +444,8 @@ func TestSettingsPersistence_EmptyProviders(t *testing.T) {
 	}
 
 	// Verify privacy settings still persist
-	if loadedCfg.Privacy.UseLocalAI != true {
-		t.Errorf("Privacy.UseLocalAI: expected true, got %v", loadedCfg.Privacy.UseLocalAI)
+	if loadedCfg.Privacy.DefaultToLocal != true {
+		t.Errorf("Privacy.DefaultToLocal: expected true, got %v", loadedCfg.Privacy.DefaultToLocal)
 	}
 	if loadedCfg.Privacy.CloudRAGPolicy != "no_rag" {
 		t.Errorf("Privacy.CloudRAGPolicy: expected 'no_rag', got '%s'", loadedCfg.Privacy.CloudRAGPolicy)
@@ -483,14 +478,12 @@ func TestSettingsPersistence_LoadTime(t *testing.T) {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: PrivacyConfig{
-			Enabled:        true,
-			UseLocalAI:     true,
+			DefaultToLocal:     true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Folders: []string{"/test1", "/test2", "/test3"},
 		Logging: LoggingConfig{
 			Level:        "info",
-			DebugEnabled: true,
 			File:         "debug.log",
 			MaxSizeMB:    10,
 			MaxBackups:   3,

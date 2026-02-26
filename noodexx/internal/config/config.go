@@ -37,8 +37,7 @@ type ProviderConfig struct {
 
 // PrivacyConfig controls privacy mode
 type PrivacyConfig struct {
-	Enabled        bool   `json:"enabled"`          // Legacy privacy mode (for backward compatibility)
-	UseLocalAI     bool   `json:"use_local_ai"`     // Privacy toggle state (true = local, false = cloud)
+	DefaultToLocal bool   `json:"default_to_local"` // Privacy toggle state (true = local, false = cloud)
 	CloudRAGPolicy string `json:"cloud_rag_policy"` // "no_rag" or "allow_rag"
 }
 
@@ -84,8 +83,7 @@ func Load(path string) (*Config, error) {
 		LocalProvider: ProviderConfig{},
 		CloudProvider: ProviderConfig{},
 		Privacy: PrivacyConfig{
-			Enabled:        true,
-			UseLocalAI:     true,
+			DefaultToLocal: true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Folders: []string{},
@@ -204,11 +202,6 @@ func (c *Config) applyEnvOverrides() {
 	if v := os.Getenv("NOODEXX_ANTHROPIC_CHAT_MODEL"); v != "" {
 		c.Provider.AnthropicChatModel = v
 	}
-	if v := os.Getenv("NOODEXX_PRIVACY_MODE"); v == "true" {
-		c.Privacy.Enabled = true
-	} else if v == "false" {
-		c.Privacy.Enabled = false
-	}
 	if v := os.Getenv("NOODEXX_LOG_LEVEL"); v != "" {
 		c.Logging.Level = v
 	}
@@ -241,21 +234,10 @@ func (c *Config) Validate() error {
 	// Skip validation of legacy Provider field if it's empty (dual-provider mode)
 	if c.Provider.Type != "" {
 		// Legacy provider validation (for backward compatibility)
-		// Privacy mode validation
-		if c.Privacy.Enabled && c.Provider.Type != "ollama" {
-			return fmt.Errorf("privacy mode requires Ollama provider")
-		}
-
 		// Provider validation
 		switch c.Provider.Type {
 		case "ollama":
-			if c.Privacy.Enabled {
-				// Validate that Ollama endpoint is localhost
-				if !strings.HasPrefix(c.Provider.OllamaEndpoint, "http://localhost") &&
-					!strings.HasPrefix(c.Provider.OllamaEndpoint, "http://127.0.0.1") {
-					return fmt.Errorf("privacy mode requires localhost Ollama endpoint")
-				}
-			}
+			// No additional validation needed for ollama
 		case "openai":
 			if c.Provider.OpenAIKey == "" {
 				return fmt.Errorf("OpenAI API key is required")
@@ -367,9 +349,6 @@ func (c *Config) migrateFromLegacyConfig() {
 			// OpenAI/Anthropic go to cloud provider
 			c.CloudProvider = c.Provider
 		}
-
-		// Migrate privacy mode
-		c.Privacy.UseLocalAI = c.Privacy.Enabled
 
 		// Set safe default for RAG policy
 		if c.Privacy.CloudRAGPolicy == "" {
