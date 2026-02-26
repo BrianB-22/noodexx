@@ -15,8 +15,8 @@ import (
 	"noodexx/internal/auth"
 	"noodexx/internal/config"
 	"noodexx/internal/ingest"
-	"noodexx/internal/llm"
 	"noodexx/internal/logging"
+	providerpkg "noodexx/internal/provider"
 	"noodexx/internal/rag"
 	"noodexx/internal/skills"
 	"noodexx/internal/store"
@@ -24,6 +24,17 @@ import (
 )
 
 const version = "1.0.0"
+
+// maskAPIKey masks an API key for display, showing only first 8 and last 4 characters
+func maskAPIKey(key string) string {
+	if key == "" {
+		return "Not set"
+	}
+	if len(key) <= 12 {
+		return "••••••••"
+	}
+	return key[:8] + "..." + key[len(key)-4:]
+}
 
 // initializeLogging creates and configures the logger based on configuration
 func initializeLogging(cfg *config.Config) (*logging.Logger, io.Writer, error) {
@@ -81,9 +92,49 @@ func main() {
 	log.Printf("=== Configuration Loaded ===")
 	log.Printf("User Mode: %s", cfg.UserMode)
 	log.Printf("Auth Provider: %s", cfg.Auth.Provider)
-	log.Printf("Provider Type: %s", cfg.Provider.Type)
-	log.Printf("Ollama Chat Model: %s", cfg.Provider.OllamaChatModel)
-	log.Printf("Ollama Embed Model: %s", cfg.Provider.OllamaEmbedModel)
+
+	// ANSI color codes
+	const (
+		colorReset = "\033[0m"
+		colorGreen = "\033[32m"
+		colorRed   = "\033[31m"
+	)
+
+	// Display dual provider configuration
+	log.Printf("--- AI Providers ---")
+	if cfg.LocalProvider.Type != "" {
+		log.Printf("%s🟢%s Local Provider: %s", colorGreen, colorReset, cfg.LocalProvider.Type)
+		if cfg.LocalProvider.Type == "ollama" {
+			log.Printf("  Endpoint: %s", cfg.LocalProvider.OllamaEndpoint)
+			log.Printf("  Chat Model: %s", cfg.LocalProvider.OllamaChatModel)
+			log.Printf("  Embed Model: %s", cfg.LocalProvider.OllamaEmbedModel)
+		}
+	} else {
+		log.Printf("Local Provider: Not configured")
+	}
+
+	if cfg.CloudProvider.Type != "" {
+		log.Printf("%s🔴%s Cloud Provider: %s", colorRed, colorReset, cfg.CloudProvider.Type)
+		if cfg.CloudProvider.Type == "openai" {
+			log.Printf("  Chat Model: %s", cfg.CloudProvider.OpenAIChatModel)
+			log.Printf("  Embed Model: %s", cfg.CloudProvider.OpenAIEmbedModel)
+			log.Printf("  API Key: %s", maskAPIKey(cfg.CloudProvider.OpenAIKey))
+		} else if cfg.CloudProvider.Type == "anthropic" {
+			log.Printf("  Chat Model: %s", cfg.CloudProvider.AnthropicChatModel)
+			log.Printf("  Embed Model: %s", cfg.CloudProvider.AnthropicEmbedModel)
+			log.Printf("  API Key: %s", maskAPIKey(cfg.CloudProvider.AnthropicKey))
+		}
+	} else {
+		log.Printf("Cloud Provider: Not configured")
+	}
+
+	log.Printf("--- Privacy Settings ---")
+	if cfg.Privacy.UseLocalAI {
+		log.Printf("Default Provider: %s🟢%s Local AI", colorGreen, colorReset)
+	} else {
+		log.Printf("Default Provider: %s🔴%s Cloud AI", colorRed, colorReset)
+	}
+	log.Printf("Cloud RAG Policy: %s", cfg.Privacy.CloudRAGPolicy)
 	log.Printf("=============================")
 
 	// Initialize logger
@@ -102,25 +153,21 @@ func main() {
 	defer st.Close()
 	logger.Info("Database initialized")
 
-	// Initialize LLM provider
-	llmLogger := logging.NewLogger("llm", logging.ParseLevel(cfg.Logging.Level), logWriter)
-	provider, err := llm.NewProvider(llm.Config{
-		Type:                cfg.Provider.Type,
-		OllamaEndpoint:      cfg.Provider.OllamaEndpoint,
-		OllamaEmbedModel:    cfg.Provider.OllamaEmbedModel,
-		OllamaChatModel:     cfg.Provider.OllamaChatModel,
-		OpenAIKey:           cfg.Provider.OpenAIKey,
-		OpenAIEmbedModel:    cfg.Provider.OpenAIEmbedModel,
-		OpenAIChatModel:     cfg.Provider.OpenAIChatModel,
-		AnthropicKey:        cfg.Provider.AnthropicKey,
-		AnthropicEmbedModel: cfg.Provider.AnthropicEmbedModel,
-		AnthropicChatModel:  cfg.Provider.AnthropicChatModel,
-	}, cfg.Privacy.Enabled, llmLogger)
+	// Initialize dual provider manager and RAG policy enforcer
+	dualProviderManager, err := providerpkg.NewDualProviderManager(cfg, logger)
 	if err != nil {
-		logger.Error("Failed to initialize LLM provider: %v", err)
+		logger.Error("Failed to initialize provider manager: %v", err)
 		os.Exit(1)
 	}
-	logger.Info("LLM provider: %s (privacy mode: %v)", provider.Name(), cfg.Privacy.Enabled)
+	ragEnforcer := rag.NewRAGPolicyEnforcer(cfg, logger)
+	logger.Info("Dual provider manager initialized")
+
+	// Get active provider for backward compatibility with ingester
+	provider, err := dualProviderManager.GetActiveProvider()
+	if err != nil {
+		logger.Error("Failed to get active provider: %v", err)
+		os.Exit(1)
+	}
 
 	// Initialize RAG components
 	chunker := rag.NewChunker(500, 50)
@@ -199,6 +246,10 @@ func main() {
 		provider: initAuthProvider(authStoreAdapter, cfg, authLogger),
 	}
 
+	// Create adapters for the new components (using already initialized dualProviderManager and ragEnforcer)
+	apiProviderManagerAdapter := &apiProviderManagerAdapter{manager: dualProviderManager}
+	apiRAGEnforcerAdapter := &apiRAGEnforcerAdapter{enforcer: ragEnforcer}
+
 	apiServer, err := api.NewServer(
 		apiStoreAdapter,
 		apiProviderAdapter,
@@ -210,6 +261,8 @@ func main() {
 		apiLoggerAdapter,
 		authProvider,
 		"config.json",
+		apiProviderManagerAdapter,
+		apiRAGEnforcerAdapter,
 	)
 	if err != nil {
 		logger.Error("Failed to initialize API server: %v", err)

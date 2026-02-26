@@ -59,6 +59,25 @@ func (m *mockStore) SaveChunk(ctx context.Context, userID int64, source, text st
 	return nil
 }
 
+func (m *mockStore) DeleteChunksBySource(ctx context.Context, userID int64, source string) error {
+	// Remove chunks matching the source and userID
+	var filtered []struct {
+		userID    int64
+		source    string
+		text      string
+		embedding []float32
+		tags      []string
+		summary   string
+	}
+	for _, chunk := range m.chunks {
+		if chunk.userID != userID || chunk.source != source {
+			filtered = append(filtered, chunk)
+		}
+	}
+	m.chunks = filtered
+	return nil
+}
+
 type mockChunker struct {
 	chunkSize int
 }

@@ -81,7 +81,7 @@ func (m *mockStore) LibraryByUser(ctx context.Context, userID int64) ([]LibraryE
 	return []LibraryEntry{}, nil
 }
 
-func (m *mockStore) SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content string) error {
+func (m *mockStore) SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content, providerMode string) error {
 	return nil
 }
 
@@ -150,6 +150,34 @@ func (m *mockLogger) Error(format string, args ...interface{})         {}
 func (m *mockLogger) WithContext(key string, value interface{}) Logger { return m }
 func (m *mockLogger) WithFields(fields map[string]interface{}) Logger  { return m }
 
+type mockProviderManager struct{}
+
+func (m *mockProviderManager) GetActiveProvider() (LLMProvider, error) {
+	return &mockProvider{}, nil
+}
+
+func (m *mockProviderManager) IsLocalMode() bool {
+	return true
+}
+
+func (m *mockProviderManager) GetProviderName() string {
+	return "Mock Provider"
+}
+
+func (m *mockProviderManager) Reload(cfg interface{}) error {
+	return nil
+}
+
+type mockRAGEnforcer struct{}
+
+func (m *mockRAGEnforcer) ShouldPerformRAG() bool {
+	return true
+}
+
+func (m *mockRAGEnforcer) GetRAGStatus() string {
+	return "RAG Enabled"
+}
+
 // Tests
 
 func TestNewServer(t *testing.T) {
@@ -164,7 +192,7 @@ func TestNewServer(t *testing.T) {
 	}
 
 	// Use the correct path from the test's perspective (running from noodexx directory)
-	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, &mockAuthProvider{}, "config.json", "../../web/templates/*.html")
+	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, &mockAuthProvider{}, "config.json", "../../web/templates/*.html", &mockProviderManager{}, &mockRAGEnforcer{})
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}
@@ -209,7 +237,7 @@ func TestRegisterRoutes(t *testing.T) {
 		Provider:    "ollama",
 	}
 
-	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, &mockAuthProvider{}, "config.json", "../../web/templates/*.html")
+	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, &mockAuthProvider{}, "config.json", "../../web/templates/*.html", &mockProviderManager{}, &mockRAGEnforcer{})
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}
@@ -261,7 +289,7 @@ func TestStaticFileServing(t *testing.T) {
 		Provider:    "ollama",
 	}
 
-	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, &mockAuthProvider{}, "config.json", "../../web/templates/*.html")
+	srv, err := NewServerWithTemplatePath(store, provider, ingester, searcher, config, nil, nil, logger, &mockAuthProvider{}, "config.json", "../../web/templates/*.html", &mockProviderManager{}, &mockRAGEnforcer{})
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}

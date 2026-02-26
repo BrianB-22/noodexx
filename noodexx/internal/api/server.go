@@ -14,18 +14,20 @@ import (
 
 // Server holds dependencies and provides HTTP handlers
 type Server struct {
-	store          Store
-	provider       LLMProvider
-	ingester       Ingester
-	searcher       Searcher
-	wsHub          *WebSocketHub
-	templates      *template.Template
-	config         *ServerConfig
-	skillsLoader   SkillsLoader
-	skillsExecutor SkillsExecutor
-	logger         Logger
-	authProvider   AuthProvider
-	configPath     string // Path to config file for saving
+	store           Store
+	provider        LLMProvider
+	ingester        Ingester
+	searcher        Searcher
+	wsHub           *WebSocketHub
+	templates       *template.Template
+	config          *ServerConfig
+	skillsLoader    SkillsLoader
+	skillsExecutor  SkillsExecutor
+	logger          Logger
+	authProvider    AuthProvider
+	configPath      string // Path to config file for saving
+	providerManager ProviderManager
+	ragEnforcer     RAGEnforcer
 }
 
 // Logger interface for structured logging
@@ -47,7 +49,7 @@ type Store interface {
 	LibraryByUser(ctx context.Context, userID int64) ([]LibraryEntry, error)
 	DeleteSource(ctx context.Context, source string) error
 	SaveMessage(ctx context.Context, sessionID, role, content string) error
-	SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content string) error
+	SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content, providerMode string) error
 	GetSessionHistory(ctx context.Context, sessionID string) ([]ChatMessage, error)
 	GetSessionMessages(ctx context.Context, userID int64, sessionID string) ([]ChatMessage, error)
 	ListSessions(ctx context.Context) ([]Session, error)
@@ -94,6 +96,23 @@ type LLMProvider interface {
 	Stream(ctx context.Context, messages []Message, w io.Writer) (string, error)
 	Name() string
 	IsLocal() bool
+}
+
+// ProviderManager interface for managing dual providers
+type ProviderManager interface {
+	GetActiveProvider() (LLMProvider, error)
+	GetLocalProvider() LLMProvider
+	GetCloudProvider() LLMProvider
+	IsLocalMode() bool
+	GetProviderName() string
+	Reload(cfg interface{}) error
+}
+
+// RAGEnforcer interface for RAG policy enforcement
+type RAGEnforcer interface {
+	ShouldPerformRAG() bool
+	GetRAGStatus() string
+	Reload(cfg interface{})
 }
 
 // Ingester interface for document ingestion
@@ -175,11 +194,12 @@ type LibraryEntry struct {
 
 // ChatMessage represents a chat message
 type ChatMessage struct {
-	ID        int64
-	SessionID string
-	Role      string
-	Content   string
-	CreatedAt time.Time
+	ID           int64
+	SessionID    string
+	Role         string
+	Content      string
+	ProviderMode string
+	CreatedAt    time.Time
 }
 
 // Session represents a chat session
@@ -221,12 +241,12 @@ type ServerConfig struct {
 }
 
 // NewServer creates a server with dependencies and loads templates
-func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string) (*Server, error) {
-	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, skillsLoader, skillsExecutor, logger, authProvider, configPath, "web/templates/*.html")
+func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string, providerManager ProviderManager, ragEnforcer RAGEnforcer) (*Server, error) {
+	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, skillsLoader, skillsExecutor, logger, authProvider, configPath, "web/templates/*.html", providerManager, ragEnforcer)
 }
 
 // NewServerWithTemplatePath creates a server with a custom template path (useful for testing)
-func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string, templatePath string) (*Server, error) {
+func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string, templatePath string, providerManager ProviderManager, ragEnforcer RAGEnforcer) (*Server, error) {
 	// Load templates from the specified path
 	tmpl, err := template.ParseGlob(templatePath)
 	if err != nil {
@@ -234,18 +254,20 @@ func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Inges
 	}
 
 	srv := &Server{
-		store:          store,
-		provider:       provider,
-		ingester:       ingester,
-		searcher:       searcher,
-		wsHub:          NewWebSocketHub(),
-		templates:      tmpl,
-		config:         config,
-		skillsLoader:   skillsLoader,
-		skillsExecutor: skillsExecutor,
-		logger:         logger,
-		authProvider:   authProvider,
-		configPath:     configPath,
+		store:           store,
+		provider:        provider,
+		ingester:        ingester,
+		searcher:        searcher,
+		wsHub:           NewWebSocketHub(),
+		templates:       tmpl,
+		config:          config,
+		skillsLoader:    skillsLoader,
+		skillsExecutor:  skillsExecutor,
+		logger:          logger,
+		authProvider:    authProvider,
+		configPath:      configPath,
+		providerManager: providerManager,
+		ragEnforcer:     ragEnforcer,
 	}
 
 	// Start WebSocket hub
@@ -284,8 +306,9 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/skills", s.handleSkills)
 	mux.HandleFunc("/api/skills/run", s.handleRunSkill)
 	mux.HandleFunc("/api/watched-folders", s.handleWatchedFolders)
-	mux.HandleFunc("/api/settings", s.handleSaveSettings)    // Save settings endpoint
-	mux.HandleFunc("/api/privacy-mode", s.handlePrivacyMode) // Toggle privacy mode
+	mux.HandleFunc("/api/settings", s.handleSaveSettings)        // Save settings endpoint
+	mux.HandleFunc("/api/privacy-mode", s.handlePrivacyMode)     // Toggle privacy mode
+	mux.HandleFunc("/api/privacy-toggle", s.handlePrivacyToggle) // Toggle between local and cloud AI
 	// Authentication routes
 	mux.HandleFunc("/api/login", s.handleLogin)
 	mux.HandleFunc("/api/logout", s.handleLogout)

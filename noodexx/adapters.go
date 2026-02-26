@@ -8,6 +8,7 @@ import (
 
 	"noodexx/internal/api"
 	"noodexx/internal/auth"
+	"noodexx/internal/config"
 	"noodexx/internal/ingest"
 	"noodexx/internal/llm"
 	"noodexx/internal/logging"
@@ -363,8 +364,8 @@ func (asa *apiStoreAdapter) SaveMessage(ctx context.Context, sessionID, role, co
 	return asa.store.SaveMessage(ctx, sessionID, role, content)
 }
 
-func (asa *apiStoreAdapter) SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content string) error {
-	return asa.store.SaveChatMessage(ctx, userID, sessionID, role, content)
+func (asa *apiStoreAdapter) SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content, providerMode string) error {
+	return asa.store.SaveChatMessage(ctx, userID, sessionID, role, content, providerMode)
 }
 
 func (asa *apiStoreAdapter) GetSessionHistory(ctx context.Context, sessionID string) ([]api.ChatMessage, error) {
@@ -377,11 +378,12 @@ func (asa *apiStoreAdapter) GetSessionHistory(ctx context.Context, sessionID str
 	apiMessages := make([]api.ChatMessage, len(storeMessages))
 	for i, sm := range storeMessages {
 		apiMessages[i] = api.ChatMessage{
-			ID:        sm.ID,
-			SessionID: sm.SessionID,
-			Role:      sm.Role,
-			Content:   sm.Content,
-			CreatedAt: sm.CreatedAt,
+			ID:           sm.ID,
+			SessionID:    sm.SessionID,
+			Role:         sm.Role,
+			Content:      sm.Content,
+			ProviderMode: sm.ProviderMode,
+			CreatedAt:    sm.CreatedAt,
 		}
 	}
 	return apiMessages, nil
@@ -397,11 +399,12 @@ func (asa *apiStoreAdapter) GetSessionMessages(ctx context.Context, userID int64
 	apiMessages := make([]api.ChatMessage, len(storeMessages))
 	for i, sm := range storeMessages {
 		apiMessages[i] = api.ChatMessage{
-			ID:        sm.ID,
-			SessionID: sm.SessionID,
-			Role:      sm.Role,
-			Content:   sm.Content,
-			CreatedAt: sm.CreatedAt,
+			ID:           sm.ID,
+			SessionID:    sm.SessionID,
+			Role:         sm.Role,
+			Content:      sm.Content,
+			ProviderMode: sm.ProviderMode,
+			CreatedAt:    sm.CreatedAt,
 		}
 	}
 	return apiMessages, nil
@@ -879,4 +882,79 @@ func (asa *authStoreAdapter) RecordFailedLogin(ctx context.Context, username str
 
 func (asa *authStoreAdapter) ClearFailedLogins(ctx context.Context, username string) error {
 	return asa.store.ClearFailedLogins(ctx, username)
+}
+
+// apiProviderManagerAdapter adapts provider.DualProviderManager to api.ProviderManager interface
+type apiProviderManagerAdapter struct {
+	manager interface {
+		GetActiveProvider() (llm.Provider, error)
+		GetLocalProvider() llm.Provider
+		GetCloudProvider() llm.Provider
+		IsLocalMode() bool
+		GetProviderName() string
+		Reload(cfg *config.Config) error
+	}
+}
+
+func (apma *apiProviderManagerAdapter) GetActiveProvider() (api.LLMProvider, error) {
+	provider, err := apma.manager.GetActiveProvider()
+	if err != nil {
+		return nil, err
+	}
+	// Wrap the llm.Provider in an apiProviderAdapter
+	return &apiProviderAdapter{provider: provider}, nil
+}
+
+func (apma *apiProviderManagerAdapter) GetLocalProvider() api.LLMProvider {
+	provider := apma.manager.GetLocalProvider()
+	if provider == nil {
+		return nil
+	}
+	return &apiProviderAdapter{provider: provider}
+}
+
+func (apma *apiProviderManagerAdapter) GetCloudProvider() api.LLMProvider {
+	provider := apma.manager.GetCloudProvider()
+	if provider == nil {
+		return nil
+	}
+	return &apiProviderAdapter{provider: provider}
+}
+
+func (apma *apiProviderManagerAdapter) IsLocalMode() bool {
+	return apma.manager.IsLocalMode()
+}
+
+func (apma *apiProviderManagerAdapter) GetProviderName() string {
+	return apma.manager.GetProviderName()
+}
+
+func (apma *apiProviderManagerAdapter) Reload(cfg interface{}) error {
+	// Convert interface{} to *config.Config
+	configCfg, ok := cfg.(*config.Config)
+	if !ok {
+		return fmt.Errorf("invalid config type: expected *config.Config, got %T", cfg)
+	}
+	return apma.manager.Reload(configCfg)
+}
+
+// apiRAGEnforcerAdapter adapts rag.RAGPolicyEnforcer to api.RAGEnforcer interface
+type apiRAGEnforcerAdapter struct {
+	enforcer interface {
+		ShouldPerformRAG() bool
+		GetRAGStatus() string
+		Reload(cfg interface{})
+	}
+}
+
+func (area *apiRAGEnforcerAdapter) ShouldPerformRAG() bool {
+	return area.enforcer.ShouldPerformRAG()
+}
+
+func (area *apiRAGEnforcerAdapter) GetRAGStatus() string {
+	return area.enforcer.GetRAGStatus()
+}
+
+func (area *apiRAGEnforcerAdapter) Reload(cfg interface{}) {
+	area.enforcer.Reload(cfg)
 }

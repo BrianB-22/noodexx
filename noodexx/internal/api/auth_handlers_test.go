@@ -130,7 +130,7 @@ func (m *mockStoreForAuth) SearchByUser(ctx context.Context, userID int64, query
 func (m *mockStoreForAuth) LibraryByUser(ctx context.Context, userID int64) ([]LibraryEntry, error) {
 	return nil, nil
 }
-func (m *mockStoreForAuth) SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content string) error {
+func (m *mockStoreForAuth) SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content, providerMode string) error {
 	return nil
 }
 func (m *mockStoreForAuth) GetUserSessions(ctx context.Context, userID int64) ([]Session, error) {
@@ -204,8 +204,8 @@ func TestHandleLogin_Success(t *testing.T) {
 		t.Errorf("Expected success=true, got %v", response["success"])
 	}
 
-	if response["redirect"] != "/dashboard" {
-		t.Errorf("Expected redirect=/dashboard, got %v", response["redirect"])
+	if response["redirect"] != "/" {
+		t.Errorf("Expected redirect=/, got %v", response["redirect"])
 	}
 
 	// Check cookie was set

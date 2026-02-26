@@ -3,6 +3,24 @@
     <!-- Session Sidebar -->
     <aside class="session-sidebar">
         <div class="session-header">
+            <!-- Privacy Toggle -->
+            <div class="privacy-toggle">
+                <label class="toggle-option">
+                    <input type="radio" name="provider-mode" value="local" {{if .PrivacyMode}}checked{{end}} onchange="switchProvider('local')">
+                    <span class="toggle-label">
+                        <span class="toggle-icon">🔒</span>
+                        <span class="toggle-text">Local AI</span>
+                    </span>
+                </label>
+                <label class="toggle-option">
+                    <input type="radio" name="provider-mode" value="cloud" {{if not .PrivacyMode}}checked{{end}} onchange="switchProvider('cloud')">
+                    <span class="toggle-label">
+                        <span class="toggle-icon">☁️</span>
+                        <span class="toggle-text">Cloud AI</span>
+                    </span>
+                </label>
+            </div>
+            
             <button class="btn-primary" id="newChatBtn" onclick="newChat()">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/>
@@ -35,6 +53,19 @@
 
         <!-- Chat Input Form -->
         <div class="chat-input-container">
+            <!-- Provider Status Warning (shown only in cloud mode) -->
+            <div class="provider-warning" id="providerWarning" style="display: none;">
+                <div class="warning-content">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="warning-icon">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
+                    </svg>
+                    <div class="warning-text">
+                        <span class="warning-title">Using Cloud AI</span>
+                        <span class="warning-subtitle" id="ragWarning"></span>
+                    </div>
+                </div>
+            </div>
+            
             <form id="chatForm" onsubmit="sendMessage(event)">
                 <div class="input-wrapper">
                     <textarea 
@@ -59,6 +90,140 @@
 // Current session ID
 let currentSessionId = null;
 
+// Update provider status indicator
+function updateProviderStatus(providerName, ragStatus, mode) {
+    const statusContainer = document.getElementById('providerStatus');
+    const statusIcon = document.getElementById('statusIcon');
+    const providerNameEl = document.getElementById('providerName');
+    const ragStatusEl = document.getElementById('ragStatus');
+    
+    if (!statusContainer || !statusIcon || !providerNameEl || !ragStatusEl) {
+        console.warn('Status indicator elements not found');
+        return;
+    }
+    
+    // Determine mode from provider name if not explicitly provided
+    if (!mode) {
+        mode = providerName && providerName.toLowerCase().includes('local') ? 'local' : 'cloud';
+    }
+    
+    // Update icon based on mode
+    statusIcon.textContent = mode === 'local' ? '🔒' : '☁️';
+    
+    // Update provider name - show provider type
+    if (mode === 'local') {
+        providerNameEl.textContent = 'Local AI (ollama)';
+    } else {
+        providerNameEl.textContent = 'Cloud AI (OpenAI/Anthropic)';
+    }
+    
+    // Update RAG status based on mode and policy
+    if (mode === 'local') {
+        ragStatusEl.textContent = 'RAG Enabled (Local)';
+    } else {
+        // For cloud mode, check the RAG policy from the status
+        if (ragStatus && ragStatus.toLowerCase().includes('no rag')) {
+            ragStatusEl.textContent = 'No RAG (Maximum Privacy)';
+        } else {
+            ragStatusEl.textContent = 'RAG Enabled (Cloud)';
+        }
+    }
+    
+    // Update color coding
+    statusContainer.classList.remove('local-mode', 'cloud-mode');
+    statusContainer.classList.add(mode + '-mode');
+    
+    console.log('Updated provider status:', { providerName, ragStatus, mode });
+}
+
+// Switch between local and cloud AI providers
+async function switchProvider(mode) {
+    console.log('Switching to provider mode:', mode);
+    
+    // Disable toggle during request
+    const toggleInputs = document.querySelectorAll('input[name="provider-mode"]');
+    toggleInputs.forEach(input => input.disabled = true);
+    
+    try {
+        const response = await fetch('/api/privacy-toggle', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mode: mode
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Failed to switch provider' }));
+            throw new Error(errorData.error || 'Failed to switch provider');
+        }
+        
+        const data = await response.json();
+        
+        // Update UI with new provider information
+        if (data.provider) {
+            console.log('Switched to:', data.provider);
+            
+            // Update status indicator
+            updateProviderStatus(data.provider, data.rag_status, mode);
+            
+            // Update provider warning visibility
+            updateProviderWarning(mode, data.rag_status);
+            
+            // Ensure the correct radio button is checked (in case of race conditions)
+            const correctInput = document.querySelector(`input[name="provider-mode"][value="${mode}"]`);
+            if (correctInput && !correctInput.checked) {
+                correctInput.checked = true;
+            }
+        }
+        
+    } catch (error) {
+        console.error('Failed to switch provider:', error);
+        
+        // Revert toggle to previous state
+        const previousMode = mode === 'local' ? 'cloud' : 'local';
+        const previousInput = document.querySelector(`input[name="provider-mode"][value="${previousMode}"]`);
+        if (previousInput) {
+            previousInput.checked = true;
+        }
+        
+        // Show error message
+        if (typeof showToast === 'function') {
+            showToast(error.message || 'Failed to switch provider. Please check your configuration.', 'error');
+        } else {
+            alert(error.message || 'Failed to switch provider. Please check your configuration.');
+        }
+    } finally {
+        // Re-enable toggle
+        toggleInputs.forEach(input => input.disabled = false);
+    }
+}
+
+// Update provider warning visibility and message
+function updateProviderWarning(mode, ragStatus) {
+    const warningDiv = document.getElementById('providerWarning');
+    const ragWarningText = document.getElementById('ragWarning');
+    
+    if (!warningDiv || !ragWarningText) return;
+    
+    if (mode === 'cloud') {
+        // Show warning in cloud mode
+        warningDiv.style.display = 'block';
+        
+        // Update RAG message based on policy
+        if (ragStatus && ragStatus.toLowerCase().includes('no rag')) {
+            ragWarningText.textContent = 'Your documents will NOT be sent to the cloud';
+        } else {
+            ragWarningText.textContent = 'Your documents MAY be sent to the cloud for context';
+        }
+    } else {
+        // Hide warning in local mode
+        warningDiv.style.display = 'none';
+    }
+}
+
 // Initialize session on page load
 document.addEventListener('DOMContentLoaded', function() {
     // Generate a new session ID for new chats
@@ -78,7 +243,49 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('chatForm').dispatchEvent(new Event('submit'));
         }
     });
+    
+    // Check provider configuration status on load
+    checkProviderStatus();
 });
+
+// Check which providers are configured and disable unavailable options
+async function checkProviderStatus() {
+    try {
+        // Get the currently selected mode
+        const currentMode = document.querySelector('input[name="provider-mode"]:checked')?.value || 'local';
+        
+        // Try to get current provider status
+        const response = await fetch('/api/privacy-toggle', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mode: currentMode
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            // Update status indicator with current provider info
+            if (data.provider || data.rag_status) {
+                updateProviderStatus(data.provider, data.rag_status, currentMode);
+                updateProviderWarning(currentMode, data.rag_status);
+            }
+            console.log('Current provider:', data.provider);
+        }
+    } catch (error) {
+        // If there's an error, set default status based on toggle
+        const currentMode = document.querySelector('input[name="provider-mode"]:checked')?.value || 'local';
+        updateProviderStatus(
+            currentMode === 'local' ? 'Local AI' : 'Cloud AI',
+            'RAG: Unknown',
+            currentMode
+        );
+        updateProviderWarning(currentMode, '');
+        console.log('Could not check provider status on load:', error);
+    }
+}
 
 // Generate a unique session ID
 function generateSessionId() {
@@ -115,6 +322,7 @@ function newChat() {
 
 // Load a specific session
 function loadSession(sessionId) {
+    console.log('Loading session:', sessionId);
     currentSessionId = sessionId;
     const messagesContainer = document.getElementById('messagesContainer');
     
@@ -122,11 +330,24 @@ function loadSession(sessionId) {
     messagesContainer.innerHTML = '<div class="message-loading">Loading conversation...</div>';
     
     // Fetch session history
-    fetch('/api/sessions/' + sessionId)
-        .then(response => response.text())
+    fetch('/api/session/' + sessionId)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load session');
+            }
+            return response.text();
+        })
         .then(html => {
             messagesContainer.innerHTML = html;
             scrollToBottom();
+            
+            // Mark this session as active in the sidebar
+            document.querySelectorAll('.session-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.sessionId === sessionId) {
+                    item.classList.add('active');
+                }
+            });
         })
         .catch(error => {
             console.error('Failed to load session:', error);
@@ -165,9 +386,13 @@ async function sendMessage(event) {
     input.disabled = true;
     document.getElementById('sendBtn').disabled = true;
     
-    // Add assistant message placeholder
+    // Determine current provider mode
+    const currentMode = document.querySelector('input[name="provider-mode"]:checked')?.value || 'local';
+    console.log('Sending message with provider mode:', currentMode);
+    
+    // Add assistant message placeholder with provider mode
     const assistantMessageId = 'msg_' + Date.now();
-    addMessage('assistant', '', assistantMessageId);
+    addMessage('assistant', '', assistantMessageId, currentMode);
     
     try {
         // Stream response from server
@@ -184,6 +409,17 @@ async function sendMessage(event) {
         
         if (!response.ok) {
             throw new Error('Request failed: ' + response.statusText);
+        }
+        
+        // Read provider and RAG status from response headers
+        const providerName = response.headers.get('X-Provider-Name');
+        const ragStatus = response.headers.get('X-RAG-Status');
+        
+        console.log('Response headers - Provider:', providerName, 'RAG:', ragStatus);
+        
+        // Update status indicator if headers are present
+        if (providerName || ragStatus) {
+            updateProviderStatus(providerName, ragStatus);
         }
         
         // Read the streaming response
@@ -209,9 +445,34 @@ async function sendMessage(event) {
         
     } catch (error) {
         console.error('Failed to send message:', error);
-        updateMessage(assistantMessageId, 'Sorry, I encountered an error processing your request.');
+        
+        // Determine which provider was being used
+        const providerType = currentMode === 'local' ? 'Local AI (Ollama)' : 'Cloud AI';
+        
+        // Create a helpful error message
+        const errorMessage = `
+            <div style="color: var(--error-color); padding: 1rem; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border-left: 4px solid var(--error-color);">
+                <strong>⚠️ Connection Error</strong>
+                <p style="margin: 0.5rem 0;">Failed to get a response from ${providerType}.</p>
+                <p style="margin: 0.5rem 0; font-size: 0.875rem;">
+                    <strong>Possible causes:</strong><br>
+                    • Provider is not running or not accessible<br>
+                    • Invalid API key or model configuration<br>
+                    • Network connectivity issues
+                </p>
+                <p style="margin: 0.5rem 0; font-size: 0.875rem;">
+                    <strong>Next steps:</strong><br>
+                    • Check the server logs for detailed error information<br>
+                    • Go to <a href="/settings" style="color: var(--primary-color); text-decoration: underline;">Settings</a> to test your provider connection<br>
+                    • Review your configuration in <code style="background: var(--background-tertiary); padding: 0.2rem 0.4rem; border-radius: 3px;">config.json</code>
+                </p>
+            </div>
+        `;
+        
+        updateMessage(assistantMessageId, errorMessage);
+        
         if (typeof showToast === 'function') {
-            showToast('Failed to send message', 'error');
+            showToast(`Failed to connect to ${providerType}`, 'error');
         }
     } finally {
         // Re-enable input
@@ -222,7 +483,7 @@ async function sendMessage(event) {
 }
 
 // Add a message to the chat
-function addMessage(role, content, messageId) {
+function addMessage(role, content, messageId, providerMode) {
     const messagesContainer = document.getElementById('messagesContainer');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message message-' + role;
@@ -240,6 +501,10 @@ function addMessage(role, content, messageId) {
             </svg>
         `;
     } else {
+        // Add provider mode class to avatar for color coding
+        if (providerMode) {
+            avatar.classList.add('provider-' + providerMode);
+        }
         avatar.innerHTML = `
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
@@ -369,6 +634,96 @@ function scrollToBottom() {
 
 .session-header {
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Privacy Toggle */
+.privacy-toggle {
+    display: flex;
+    background: var(--background);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+    border: 2px solid var(--border);
+}
+
+.toggle-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 10px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    position: relative;
+    background: transparent;
+}
+
+.toggle-option:hover {
+    background: var(--hover);
+}
+
+.toggle-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-option input[type="radio"]:checked + .toggle-label {
+    color: white;
+    font-weight: 600;
+}
+
+.toggle-option input[type="radio"]:checked + .toggle-label .toggle-icon {
+    transform: scale(1.1);
+}
+
+/* Local AI selected - green background */
+.toggle-option input[type="radio"][value="local"]:checked ~ .toggle-label,
+.toggle-option:has(input[type="radio"][value="local"]:checked) {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+}
+
+/* Cloud AI selected - blue background */
+.toggle-option input[type="radio"][value="cloud"]:checked ~ .toggle-label,
+.toggle-option:has(input[type="radio"][value="cloud"]:checked) {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.toggle-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.toggle-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.toggle-option input[type="radio"]:disabled + .toggle-label {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .session-list {
@@ -494,6 +849,17 @@ function scrollToBottom() {
     color: var(--secondary);
 }
 
+/* Provider-based avatar colors for assistant messages */
+.message-assistant .message-avatar.provider-local {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+
+.message-assistant .message-avatar.provider-cloud {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
 .message-content {
     flex: 1;
     position: relative;
@@ -565,6 +931,119 @@ function scrollToBottom() {
     padding: 1rem;
     border-top: 1px solid var(--border);
     background: var(--surface);
+}
+
+/* Provider Warning */
+.provider-warning {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 8px;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.warning-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.warning-icon {
+    flex-shrink: 0;
+    color: #f59e0b;
+    margin-top: 2px;
+}
+
+.warning-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.warning-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f59e0b;
+}
+
+.warning-subtitle {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* Provider Status Indicator (above input) */
+.chat-input-container .provider-status {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    background: var(--background);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+.chat-input-container .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+}
+
+.chat-input-container .status-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.chat-input-container .status-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.chat-input-container .provider-name {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.chat-input-container .status-separator {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+.chat-input-container .rag-status {
+    font-size: 0.75rem;
+}
+
+/* Status color coding */
+.chat-input-container .provider-status.local-mode {
+    background: rgba(34, 197, 94, 0.05);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+.chat-input-container .provider-status.local-mode .provider-name {
+    color: #22c55e;
+}
+
+.chat-input-container .provider-status.cloud-mode {
+    background: rgba(59, 130, 246, 0.05);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.chat-input-container .provider-status.cloud-mode .provider-name {
+    color: #3b82f6;
 }
 
 .input-wrapper {

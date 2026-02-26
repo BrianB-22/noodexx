@@ -43,7 +43,7 @@ type DataStore interface {
 	DeleteChunksBySource(ctx context.Context, userID int64, source string) error
 
 	// Session Management
-	SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content string) error
+	SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content, providerMode string) error
 	GetUserSessions(ctx context.Context, userID int64) ([]Session, error)
 	GetSessionOwner(ctx context.Context, sessionID string) (int64, error)
 	GetSessionMessages(ctx context.Context, userID int64, sessionID string) ([]ChatMessage, error)

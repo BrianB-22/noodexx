@@ -27,11 +27,12 @@ type LibraryEntry struct {
 
 // ChatMessage represents a chat message
 type ChatMessage struct {
-	ID        int64
-	SessionID string
-	Role      string // "user" or "assistant"
-	Content   string
-	CreatedAt time.Time
+	ID           int64
+	SessionID    string
+	Role         string // "user" or "assistant"
+	Content      string
+	ProviderMode string // "local" or "cloud"
+	CreatedAt    time.Time
 }
 
 // Session represents a chat session

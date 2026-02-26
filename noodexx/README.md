@@ -114,24 +114,50 @@ Noodexx uses a `config.json` file for configuration. On first run, a default con
 
 The `config.json` file is located in the application directory (same directory as the `noodexx` binary).
 
+### Initial Setup
+
+1. Copy the example configuration:
+   ```bash
+   cp config.json.example config.json
+   ```
+
+2. Edit `config.json` and replace placeholder values:
+   - `YOUR_OPENAI_API_KEY_HERE` with your actual OpenAI API key
+   - Or configure Anthropic if you prefer Claude models
+   - Adjust other settings as needed
+
+3. The `config.json` file is excluded from git (via `.gitignore`) to protect your API keys
+
+### Dual-Provider Configuration
+
+Noodexx supports dual-provider configuration, allowing you to have both local and cloud AI providers configured simultaneously. You can switch between them instantly using the privacy toggle in the UI.
+
+**Configuration Structure:**
+- `local_provider` - Local AI provider (typically Ollama)
+- `cloud_provider` - Cloud AI provider (OpenAI or Anthropic)
+- `privacy.use_local_ai` - Toggle between providers (true = local, false = cloud)
+- `privacy.cloud_rag_policy` - Control RAG behavior for cloud provider
+
 ### Default Configuration
 
 ```json
 {
-  "provider": {
+  "local_provider": {
     "type": "ollama",
     "ollama_endpoint": "http://localhost:11434",
-    "ollama_embed_model": "nomic-embed-text",
-    "ollama_chat_model": "llama3.2",
-    "openai_key": "",
+    "ollama_embed_model": "nomic-embed-text:latest",
+    "ollama_chat_model": "noodexx-chat:latest"
+  },
+  "cloud_provider": {
+    "type": "openai",
+    "openai_key": "YOUR_OPENAI_API_KEY_HERE",
     "openai_embed_model": "text-embedding-3-small",
-    "openai_chat_model": "gpt-4",
-    "anthropic_key": "",
-    "anthropic_embed_model": "",
-    "anthropic_chat_model": "claude-3-sonnet-20240229"
+    "openai_chat_model": "gpt-4"
   },
   "privacy": {
-    "enabled": true
+    "enabled": false,
+    "use_local_ai": true,
+    "cloud_rag_policy": "no_rag"
   },
   "folders": [],
   "logging": {
@@ -151,68 +177,82 @@ The `config.json` file is located in the application directory (same directory a
   "server": {
     "port": 8080,
     "bind_address": "127.0.0.1"
+  },
+  "user_mode": "multi",
+  "auth": {
+    "provider": "userpass",
+    "session_expiry_days": 7,
+    "lockout_threshold": 5,
+    "lockout_duration_minutes": 15
   }
 }
 ```
 
 ### Configuration Examples
 
-#### Local-Only Setup (Privacy Mode)
+#### Dual-Provider Setup (Recommended)
+
+Configure both local and cloud providers for maximum flexibility:
 
 ```json
 {
-  "provider": {
+  "local_provider": {
     "type": "ollama",
     "ollama_endpoint": "http://localhost:11434",
-    "ollama_embed_model": "nomic-embed-text",
-    "ollama_chat_model": "llama3.2"
+    "ollama_embed_model": "nomic-embed-text:latest",
+    "ollama_chat_model": "noodexx-chat:latest"
   },
-  "privacy": {
-    "enabled": true
-  },
-  "folders": [
-    "/Users/yourname/Documents/notes",
-    "/Users/yourname/Documents/research"
-  ],
-  "server": {
-    "port": 8080,
-    "bind_address": "127.0.0.1"
-  }
-}
-```
-
-#### OpenAI Cloud Setup
-
-```json
-{
-  "provider": {
+  "cloud_provider": {
     "type": "openai",
-    "openai_key": "sk-your-api-key-here",
+    "openai_key": "sk-proj-...",
     "openai_embed_model": "text-embedding-3-small",
     "openai_chat_model": "gpt-4"
   },
   "privacy": {
-    "enabled": false
+    "use_local_ai": true,
+    "cloud_rag_policy": "no_rag"
   },
-  "guardrails": {
-    "max_file_size_mb": 20,
-    "pii_detection": "strict",
-    "auto_summarize": true
+  "folders": [
+    "/Users/yourname/Documents/notes",
+    "/Users/yourname/Documents/research"
+  ]
+}
+```
+
+Switch between providers instantly using the privacy toggle in the chat interface.
+
+#### Local-Only Setup
+
+Use only Ollama for complete privacy:
+
+```json
+{
+  "local_provider": {
+    "type": "ollama",
+    "ollama_endpoint": "http://localhost:11434",
+    "ollama_embed_model": "nomic-embed-text:latest",
+    "ollama_chat_model": "llama3.2"
+  },
+  "privacy": {
+    "use_local_ai": true
   }
 }
 ```
 
-#### Anthropic Cloud Setup
+#### Cloud-Only Setup with Anthropic
+
+Use Claude models without local provider:
 
 ```json
 {
-  "provider": {
+  "cloud_provider": {
     "type": "anthropic",
-    "anthropic_key": "sk-ant-your-api-key-here",
+    "anthropic_key": "sk-ant-...",
     "anthropic_chat_model": "claude-3-opus-20240229"
   },
   "privacy": {
-    "enabled": false
+    "use_local_ai": false,
+    "cloud_rag_policy": "allow_rag"
   }
 }
 ```
@@ -221,10 +261,10 @@ The `config.json` file is located in the application directory (same directory a
 
 ```json
 {
-  "provider": {
+  "local_provider": {
     "type": "ollama",
     "ollama_endpoint": "http://localhost:11434",
-    "ollama_embed_model": "nomic-embed-text",
+    "ollama_embed_model": "nomic-embed-text:latest",
     "ollama_chat_model": "llama3.2"
   },
   "logging": {
@@ -240,6 +280,56 @@ The `config.json` file is located in the application directory (same directory a
   }
 }
 ```
+
+### API Key Security
+
+The `config.json` file contains sensitive API keys and is excluded from version control via `.gitignore`.
+
+**Best Practices:**
+
+1. **Never commit config.json** - It's already in `.gitignore`
+2. **Use config.json.example** - Template with placeholder values for sharing
+3. **Rotate keys regularly** - Especially if accidentally exposed
+4. **Use environment variables** - For CI/CD or production deployments
+
+**For Version Control:**
+
+```bash
+# config.json is ignored (contains your real API keys)
+# config.json.example is tracked (contains placeholders)
+
+# When setting up on a new machine:
+cp config.json.example config.json
+# Then edit config.json with your actual API keys
+```
+
+**Environment Variable Alternative:**
+
+Instead of storing keys in config.json, you can use environment variables:
+
+```bash
+export NOODEXX_OPENAI_KEY=sk-proj-...
+export NOODEXX_ANTHROPIC_KEY=sk-ant-...
+./noodexx
+```
+
+### Privacy Settings
+
+#### use_local_ai
+
+Controls which provider is used by default:
+- `true` - Use local provider (Ollama)
+- `false` - Use cloud provider (OpenAI/Anthropic)
+
+Toggle instantly in the chat interface without restart.
+
+#### cloud_rag_policy
+
+Controls RAG (Retrieval-Augmented Generation) behavior when using cloud provider:
+- `"no_rag"` - Maximum privacy, no document context sent to cloud
+- `"allow_rag"` - Allow document context to be sent to cloud for better answers
+
+**Important:** When `cloud_rag_policy` is `"no_rag"`, the cloud AI will only answer based on its training data, not your documents.
 
 ### Logging Configuration
 
@@ -324,13 +414,19 @@ When the log file reaches `max_size_mb`:
 All configuration values can be overridden with environment variables:
 
 ```bash
-# Provider configuration
-export NOODEXX_PROVIDER=openai
-export NOODEXX_OPENAI_KEY=sk-your-key
-export NOODEXX_OPENAI_CHAT_MODEL=gpt-4
+# Local provider configuration
+export NOODEXX_LOCAL_PROVIDER_TYPE=ollama
+export NOODEXX_LOCAL_PROVIDER_OLLAMA_ENDPOINT=http://localhost:11434
+export NOODEXX_LOCAL_PROVIDER_OLLAMA_CHAT_MODEL=llama3.2
 
-# Privacy mode
-export NOODEXX_PRIVACY_MODE=true
+# Cloud provider configuration
+export NOODEXX_CLOUD_PROVIDER_TYPE=openai
+export NOODEXX_CLOUD_PROVIDER_OPENAI_KEY=sk-proj-...
+export NOODEXX_CLOUD_PROVIDER_OPENAI_CHAT_MODEL=gpt-4
+
+# Privacy settings
+export NOODEXX_PRIVACY_USE_LOCAL_AI=true
+export NOODEXX_PRIVACY_CLOUD_RAG_POLICY=no_rag
 
 # Server configuration
 export NOODEXX_SERVER_PORT=3000
@@ -343,6 +439,8 @@ export NOODEXX_LOG_FILE=/var/log/noodexx.log
 # Run Noodexx
 ./noodexx
 ```
+
+For more details on provider configuration, see [LLM-PROVIDER-SETUP.md](LLM-PROVIDER-SETUP.md).
 
 ---
 

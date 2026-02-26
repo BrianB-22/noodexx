@@ -200,6 +200,45 @@ This document summarizes the UI components implemented for the Noodexx Phase 4 M
 
 ---
 
+### Task 22: Provider Mode Storage ✅
+**Files Modified:**
+- `internal/store/migrations.go`
+- `internal/store/models.go`
+- `internal/store/store.go`
+- `internal/store/datastore.go`
+- `internal/api/server.go`
+- `internal/api/handlers.go`
+- `adapters.go`
+- `web/templates/chat.html`
+- Test files (3)
+
+**Features:**
+- Database column `provider_mode` added to `chat_messages` table
+- Stores which AI provider generated each message ("local" or "cloud")
+- Assistant messages display with correct provider color when loading old sessions
+- Green icon for local AI messages
+- Red icon for cloud AI messages
+- Backward compatible with existing messages (default to 'local')
+
+**Implementation Details:**
+- `SaveChatMessage()` updated to accept `providerMode` parameter
+- `handleAsk()` determines current provider mode before saving assistant messages
+- `GetSessionHistory()` and `GetSessionMessages()` retrieve provider mode
+- `handleSessionHistory()` renders provider class in HTML
+- Removed temporary frontend fix that applied current mode to all messages
+
+**Database Migration:**
+```sql
+ALTER TABLE chat_messages ADD COLUMN provider_mode TEXT DEFAULT 'local'
+```
+
+**User Impact:**
+- Historical accuracy: Users can see which provider was used for each message
+- Visual clarity: Green = local AI, Red = cloud AI
+- No breaking changes: Existing messages default to 'local'
+
+---
+
 ## CSS Enhancements
 
 ### Global Styles Added to `style.css`:
@@ -416,3 +455,11 @@ noodexx/
 All UI components for the multi-user foundation have been implemented and are ready for backend integration. The templates follow consistent design patterns, include proper error handling, and are fully responsive. The JavaScript is clean, uses modern async/await patterns, and includes proper error handling.
 
 The implementation is modular and maintainable, with clear separation between authentication pages, user management, and existing functionality. All components gracefully handle both single-user and multi-user modes.
+
+**Recent Enhancement**: Provider mode storage has been implemented, allowing users to see which AI provider (local or cloud) generated each message in their chat history. This provides transparency and historical accuracy with visual indicators (green for local, red for cloud).
+
+---
+
+**Last Updated**: February 26, 2026  
+**Total Tasks Completed**: 22 (including provider mode storage)  
+**Status**: ✅ Production Ready

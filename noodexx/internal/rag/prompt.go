@@ -16,9 +16,15 @@ func NewPromptBuilder() *PromptBuilder {
 // BuildPrompt combines query and chunks into a RAG prompt
 // It formats the context with source attribution and combines it with the user query
 func (pb *PromptBuilder) BuildPrompt(query string, chunks []Chunk) string {
+	// Handle empty chunks case (RAG disabled)
+	if len(chunks) == 0 {
+		return fmt.Sprintf("You are a helpful assistant.\n\nUser Question: %s", query)
+	}
+
+	// Existing logic for non-empty chunks (RAG enabled)
 	var sb strings.Builder
 
-	sb.WriteString("You are a helpful assistant. Use the following context to answer the user's question.\n\n")
+	sb.WriteString("You are a helpful assistant. Answer the user's question using the provided context if it's relevant, or use your general knowledge if the context doesn't contain the answer.\n\n")
 	sb.WriteString("Context:\n")
 
 	for i, chunk := range chunks {
@@ -27,7 +33,7 @@ func (pb *PromptBuilder) BuildPrompt(query string, chunks []Chunk) string {
 
 	sb.WriteString("\n\nUser Question: ")
 	sb.WriteString(query)
-	sb.WriteString("\n\nAnswer based on the context above:")
+	sb.WriteString("\n\nAnswer: (Use the context if relevant, otherwise answer from your general knowledge)")
 
 	return sb.String()
 }

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"noodexx/internal/auth"
 	"noodexx/internal/config"
+	"noodexx/internal/rag"
 	"strings"
 	"time"
 )
@@ -182,52 +183,88 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save user message with user_id
-	if err := s.store.SaveChatMessage(ctx, userID, req.SessionID, "user", req.Query); err != nil {
+	// User messages don't have a provider mode, use empty string
+	if err := s.store.SaveChatMessage(ctx, userID, req.SessionID, "user", req.Query, ""); err != nil {
 		logger.Warn("failed to save user message", "error", err.Error())
 	}
 
 	// Audit log
 	s.store.AddAuditEntry(ctx, "query", req.Query, req.SessionID)
 
-	// Embed query
-	queryVec, err := s.provider.Embed(ctx, req.Query)
+	// Get active provider
+	provider, err := s.providerManager.GetActiveProvider()
 	if err != nil {
-		logger.Error("request failed", "operation", "embed_query", "error", err.Error())
-		http.Error(w, "Embedding failed", http.StatusInternalServerError)
+		logger.Error("request failed", "operation", "get_active_provider", "error", err.Error())
+		http.Error(w, "Provider not configured. Please configure the AI provider in Settings.", http.StatusBadRequest)
 		return
 	}
 
-	// Search for relevant chunks (user-scoped)
-	chunks, err := s.store.SearchByUser(ctx, userID, queryVec, 5)
-	if err != nil {
-		logger.Error("request failed", "operation", "search_chunks", "error", err.Error())
-		http.Error(w, "Search failed", http.StatusInternalServerError)
-		return
+	// Conditionally perform RAG based on policy
+	var chunks []Chunk
+	if s.ragEnforcer.ShouldPerformRAG() {
+		logger.Debug("performing RAG search")
+
+		// Embed query
+		queryVec, err := provider.Embed(ctx, req.Query)
+		if err != nil {
+			logger.Error("request failed", "operation", "embed_query", "error", err.Error())
+			http.Error(w, "Embedding failed", http.StatusInternalServerError)
+			return
+		}
+
+		// Search for relevant chunks (user-scoped)
+		chunks, err = s.store.SearchByUser(ctx, userID, queryVec, 5)
+		if err != nil {
+			logger.Error("request failed", "operation", "search_chunks", "error", err.Error())
+			http.Error(w, "Search failed", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		logger.Debug("skipping RAG search per policy")
 	}
 
-	// Build prompt using PromptBuilder
-	promptBuilder := &PromptBuilder{}
-	prompt := promptBuilder.BuildPrompt(req.Query, chunks)
+	// Build prompt using PromptBuilder (with or without chunks)
+	// Convert api.Chunk to rag.Chunk
+	ragChunks := make([]rag.Chunk, len(chunks))
+	for i, chunk := range chunks {
+		ragChunks[i] = rag.Chunk{
+			Source: chunk.Source,
+			Text:   chunk.Text,
+			Score:  chunk.Score,
+		}
+	}
+
+	promptBuilder := rag.NewPromptBuilder()
+	prompt := promptBuilder.BuildPrompt(req.Query, ragChunks)
 
 	// Stream response
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Session-ID", req.SessionID)
+	w.Header().Set("X-Provider-Name", s.providerManager.GetProviderName())
+	w.Header().Set("X-RAG-Status", s.ragEnforcer.GetRAGStatus())
 
 	messages := []Message{
 		{Role: "system", Content: "You are a helpful assistant."},
 		{Role: "user", Content: prompt},
 	}
 
-	response, err := s.provider.Stream(ctx, messages, w)
+	response, err := provider.Stream(ctx, messages, w)
 	if err != nil {
 		logger.Error("request failed", "operation", "stream_response", "error", err.Error())
+		// Write error message to the stream so the client can display it
+		errorMsg := fmt.Sprintf("Error: Failed to get response from AI provider. %s", err.Error())
+		fmt.Fprint(w, errorMsg)
 		return
 	}
 
-	// Save assistant message with user_id
-	if err := s.store.SaveChatMessage(ctx, userID, req.SessionID, "assistant", response); err != nil {
+	// Save assistant message with user_id and provider mode
+	providerMode := "local"
+	if !s.providerManager.IsLocalMode() {
+		providerMode = "cloud"
+	}
+	if err := s.store.SaveChatMessage(ctx, userID, req.SessionID, "assistant", response, providerMode); err != nil {
 		logger.Warn("failed to save assistant message", "error", err.Error())
 	}
 
@@ -262,10 +299,10 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		for _, session := range sessions {
 			relativeTime := formatRelativeTime(session.LastMessageAt)
-			fmt.Fprintf(w, `<div class="session-item" data-session-id="%s">
+			fmt.Fprintf(w, `<div class="session-item" data-session-id="%s" onclick="loadSession('%s')">
 				<div class="session-time">%s</div>
 				<div class="session-count">%d messages</div>
-			</div>`, session.ID, relativeTime, session.MessageCount)
+			</div>`, session.ID, session.ID, relativeTime, session.MessageCount)
 		}
 	}
 }
@@ -300,12 +337,32 @@ func (s *Server) handleSessionHistory(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(messages)
 	} else {
-		// Return HTML fragment for HTMX
+		// Return HTML fragment for HTMX with proper message structure
 		w.Header().Set("Content-Type", "text/html")
 		for _, msg := range messages {
-			fmt.Fprintf(w, `<div class="message %s-message">
+			avatarSVG := ""
+			providerClass := ""
+			if msg.Role == "user" {
+				avatarSVG = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+				</svg>`
+			} else {
+				avatarSVG = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+					<path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
+					<path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"/>
+				</svg>`
+				// Add provider class for assistant messages
+				if msg.ProviderMode == "cloud" {
+					providerClass = " provider-cloud"
+				} else {
+					providerClass = " provider-local"
+				}
+			}
+
+			fmt.Fprintf(w, `<div class="message message-%s">
+				<div class="message-avatar%s">%s</div>
 				<div class="message-content">%s</div>
-			</div>`, msg.Role, msg.Content)
+			</div>`, msg.Role, providerClass, avatarSVG, msg.Content)
 		}
 	}
 }
@@ -672,26 +729,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency, "source", req.Source)
 }
 
-// PromptBuilder is a simple prompt builder for RAG
-type PromptBuilder struct{}
-
-// BuildPrompt combines query and chunks into a RAG prompt
-func (pb *PromptBuilder) BuildPrompt(query string, chunks []Chunk) string {
-	var sb strings.Builder
-
-	sb.WriteString("You are a helpful assistant. Use the following context to answer the user's question.\n\n")
-	sb.WriteString("Context:\n")
-
-	for i, chunk := range chunks {
-		sb.WriteString(fmt.Sprintf("\n[%d] Source: %s\n%s\n", i+1, chunk.Source, chunk.Text))
-	}
-
-	sb.WriteString("\n\nUser Question: ")
-	sb.WriteString(query)
-	sb.WriteString("\n\nAnswer based on the context above:")
-
-	return sb.String()
-}
+// Note: PromptBuilder is now in the rag package (internal/rag/prompt.go)
 
 // generateSessionID creates a random session ID
 func generateSessionID() string {
@@ -762,18 +800,23 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	// Create nested config structure that matches template expectations
 	configData := map[string]interface{}{
 		"Privacy": map[string]interface{}{
-			"Enabled": cfg.Privacy.Enabled,
+			"UseLocalAI":     cfg.Privacy.UseLocalAI,
+			"CloudRAGPolicy": cfg.Privacy.CloudRAGPolicy,
 		},
-		"Provider": map[string]interface{}{
-			"Type":               cfg.Provider.Type,
-			"OllamaEndpoint":     cfg.Provider.OllamaEndpoint,
-			"OllamaEmbedModel":   cfg.Provider.OllamaEmbedModel,
-			"OllamaChatModel":    cfg.Provider.OllamaChatModel,
-			"OpenAIKey":          cfg.Provider.OpenAIKey,
-			"OpenAIEmbedModel":   cfg.Provider.OpenAIEmbedModel,
-			"OpenAIChatModel":    cfg.Provider.OpenAIChatModel,
-			"AnthropicKey":       cfg.Provider.AnthropicKey,
-			"AnthropicChatModel": cfg.Provider.AnthropicChatModel,
+		"LocalProvider": map[string]interface{}{
+			"Type":             cfg.LocalProvider.Type,
+			"OllamaEndpoint":   cfg.LocalProvider.OllamaEndpoint,
+			"OllamaEmbedModel": cfg.LocalProvider.OllamaEmbedModel,
+			"OllamaChatModel":  cfg.LocalProvider.OllamaChatModel,
+		},
+		"CloudProvider": map[string]interface{}{
+			"Type":                cfg.CloudProvider.Type,
+			"OpenAIKey":           cfg.CloudProvider.OpenAIKey,
+			"OpenAIEmbedModel":    cfg.CloudProvider.OpenAIEmbedModel,
+			"OpenAIChatModel":     cfg.CloudProvider.OpenAIChatModel,
+			"AnthropicKey":        cfg.CloudProvider.AnthropicKey,
+			"AnthropicEmbedModel": cfg.CloudProvider.AnthropicEmbedModel,
+			"AnthropicChatModel":  cfg.CloudProvider.AnthropicChatModel,
 		},
 		"Folders": cfg.Folders,
 		"Guardrails": map[string]interface{}{
@@ -808,17 +851,154 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.logger.Debug("Received dual provider config save request")
+
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
+		s.logger.Error("Failed to parse form: %v", err)
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
 
-	// TODO: Implement configuration saving
-	// This requires access to the full config object and the ability to save it
-	// For now, return a placeholder response
+	s.logger.Debug("Form data received: %v", r.Form)
+
+	// Load current config
+	cfg, err := config.Load(s.configPath)
+	if err != nil {
+		s.logger.Error("Failed to load config: %v", err)
+		http.Error(w, "Failed to load config", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse local provider configuration
+	localProviderType := r.FormValue("local_provider_type")
+	if localProviderType != "" {
+		cfg.LocalProvider.Type = localProviderType
+		s.logger.Debug("Local provider type: %s", localProviderType)
+	}
+
+	// Local Ollama settings
+	if v := r.FormValue("local_ollama_endpoint"); v != "" {
+		cfg.LocalProvider.OllamaEndpoint = v
+		s.logger.Debug("Local Ollama endpoint: %s", v)
+	}
+	if v := r.FormValue("local_ollama_embed_model"); v != "" {
+		cfg.LocalProvider.OllamaEmbedModel = v
+		s.logger.Debug("Local Ollama embed model: %s", v)
+	}
+	if v := r.FormValue("local_ollama_chat_model"); v != "" {
+		cfg.LocalProvider.OllamaChatModel = v
+		s.logger.Debug("Local Ollama chat model: %s", v)
+	}
+
+	// Parse cloud provider configuration
+	cloudProviderType := r.FormValue("cloud_provider_type")
+	if cloudProviderType != "" {
+		cfg.CloudProvider.Type = cloudProviderType
+		s.logger.Debug("Cloud provider type: %s", cloudProviderType)
+	}
+
+	// Cloud OpenAI settings
+	if v := r.FormValue("cloud_openai_key"); v != "" {
+		cfg.CloudProvider.OpenAIKey = v
+		s.logger.Debug("Cloud OpenAI key provided: %d chars", len(v))
+	}
+	if v := r.FormValue("cloud_openai_embed_model"); v != "" {
+		cfg.CloudProvider.OpenAIEmbedModel = v
+		s.logger.Debug("Cloud OpenAI embed model: %s", v)
+	}
+	if v := r.FormValue("cloud_openai_chat_model"); v != "" {
+		cfg.CloudProvider.OpenAIChatModel = v
+		s.logger.Debug("Cloud OpenAI chat model: %s", v)
+	}
+
+	// Cloud Anthropic settings
+	if v := r.FormValue("cloud_anthropic_key"); v != "" {
+		cfg.CloudProvider.AnthropicKey = v
+		s.logger.Debug("Cloud Anthropic key provided: %d chars", len(v))
+	}
+	if v := r.FormValue("cloud_anthropic_embed_model"); v != "" {
+		cfg.CloudProvider.AnthropicEmbedModel = v
+		s.logger.Debug("Cloud Anthropic embed model: %s", v)
+	}
+	if v := r.FormValue("cloud_anthropic_chat_model"); v != "" {
+		cfg.CloudProvider.AnthropicChatModel = v
+		s.logger.Debug("Cloud Anthropic chat model: %s", v)
+	}
+
+	// Parse privacy toggle state (use_local_ai)
+	useLocalAI := r.FormValue("use_local_ai")
+	if useLocalAI == "true" || useLocalAI == "on" {
+		cfg.Privacy.UseLocalAI = true
+		s.logger.Debug("Privacy toggle: use local AI")
+	} else if useLocalAI == "false" || useLocalAI == "" {
+		cfg.Privacy.UseLocalAI = false
+		s.logger.Debug("Privacy toggle: use cloud AI")
+	}
+
+	// Parse RAG policy (cloud_rag_policy)
+	ragPolicy := r.FormValue("cloud_rag_policy")
+	if ragPolicy != "" {
+		cfg.Privacy.CloudRAGPolicy = ragPolicy
+		s.logger.Debug("Cloud RAG policy: %s", ragPolicy)
+	}
+
+	s.logger.Debug("Dual provider config parsed successfully")
+
+	// Validate local provider configuration
+	if err := cfg.LocalProvider.ValidateLocal(); err != nil {
+		s.logger.Error("Local provider validation failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf(`{"success": false, "error": "Local provider validation failed: %s"}`, err.Error())))
+		return
+	}
+
+	// Validate cloud provider configuration
+	if err := cfg.CloudProvider.ValidateCloud(); err != nil {
+		s.logger.Error("Cloud provider validation failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf(`{"success": false, "error": "Cloud provider validation failed: %s"}`, err.Error())))
+		return
+	}
+
+	// Validate RAG policy
+	if err := cfg.Privacy.ValidateRAGPolicy(); err != nil {
+		s.logger.Error("RAG policy validation failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf(`{"success": false, "error": "RAG policy validation failed: %s"}`, err.Error())))
+		return
+	}
+
+	s.logger.Debug("All validations passed, saving configuration")
+
+	// Save configuration to disk
+	if err := cfg.Save(s.configPath); err != nil {
+		s.logger.Error("Failed to save config: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf(`{"success": false, "error": "Failed to save configuration: %s"}`, err.Error())))
+		return
+	}
+
+	s.logger.Info("Configuration saved successfully")
+
+	// Reload providers with new configuration
+	if err := s.providerManager.Reload(cfg); err != nil {
+		s.logger.Error("Failed to reload providers: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf(`{"success": false, "error": "Failed to reload providers: %s"}`, err.Error())))
+		return
+	}
+
+	s.logger.Info("Providers reloaded successfully")
+
+	// Return success response
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"success": true, "message": "Configuration saved (placeholder)"}`))
+	w.Write([]byte(`{"success": true, "message": "Configuration saved successfully"}`))
 }
 
 // handleTestConnection tests provider connectivity
@@ -830,8 +1010,76 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	// Parse form to get test_provider_mode
+	if err := r.ParseForm(); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Failed to parse form data",
+		})
+		return
+	}
+
+	providerMode := r.FormValue("test_provider_mode")
+	if providerMode == "" {
+		providerMode = "active" // Default to active provider if not specified
+	}
+
+	// Get the provider to test based on mode
+	var providerToTest LLMProvider
+	var providerName string
+
+	if s.providerManager != nil {
+		// Using provider manager (dual-provider setup)
+		switch providerMode {
+		case "local":
+			providerToTest = s.providerManager.GetLocalProvider()
+			if providerToTest == nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"success": false,
+					"error":   "Local provider not configured",
+				})
+				return
+			}
+			providerName = "Local provider"
+		case "cloud":
+			providerToTest = s.providerManager.GetCloudProvider()
+			if providerToTest == nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"success": false,
+					"error":   "Cloud provider not configured",
+				})
+				return
+			}
+			providerName = "Cloud provider"
+		default:
+			// Test active provider
+			activeProvider, err := s.providerManager.GetActiveProvider()
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"success": false,
+					"error":   err.Error(),
+				})
+				return
+			}
+			providerToTest = activeProvider
+			providerName = "Active provider"
+		}
+	} else {
+		// Single provider mode (legacy)
+		providerToTest = s.provider
+		providerName = "Provider"
+	}
+
 	// Test embedding with a simple text
-	_, err := s.provider.Embed(ctx, "test")
+	_, err := providerToTest.Embed(ctx, "test")
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -845,7 +1093,7 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Connection successful",
+		"message": providerName + " connection successful",
 	})
 }
 
@@ -1864,4 +2112,111 @@ func (s *Server) handleChangePasswordPage(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Failed to render change password page", http.StatusInternalServerError)
 		return
 	}
+}
+
+// handlePrivacyToggle handles POST /api/privacy-toggle endpoint
+// Allows users to quickly switch between local and cloud AI providers
+func (s *Server) handlePrivacyToggle(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	if r.Method != http.MethodPost {
+		logger.Warn("method not allowed", "method", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	logger.Debug("processing privacy toggle request")
+
+	// Parse JSON body
+	var req struct {
+		Mode string `json:"mode"` // "local" or "cloud"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("failed to parse request body", "error", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request body",
+		})
+		return
+	}
+
+	logger.Debug("privacy toggle request", "mode", req.Mode)
+
+	// Validate mode
+	if req.Mode != "local" && req.Mode != "cloud" {
+		logger.Error("invalid mode", "mode", req.Mode)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Invalid mode: must be 'local' or 'cloud'",
+		})
+		return
+	}
+
+	// Load current config
+	cfg, err := config.Load(s.configPath)
+	if err != nil {
+		logger.Error("failed to load config", "error", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Failed to load configuration",
+		})
+		return
+	}
+
+	// Update privacy toggle state based on mode
+	useLocalAI := req.Mode == "local"
+	cfg.Privacy.UseLocalAI = useLocalAI
+
+	logger.Debug("updating privacy toggle", "use_local_ai", useLocalAI)
+
+	// Save configuration to disk
+	if err := cfg.Save(s.configPath); err != nil {
+		logger.Error("failed to save config", "error", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Failed to save configuration",
+		})
+		return
+	}
+
+	// Reload the provider manager and RAG enforcer with the new config
+	if err := s.providerManager.Reload(cfg); err != nil {
+		logger.Error("failed to reload provider manager", "error", err.Error())
+		// Don't fail the request, just log the error
+	}
+	s.ragEnforcer.Reload(cfg)
+
+	logger.Info("privacy toggle updated successfully", "mode", req.Mode)
+
+	// Get provider name and RAG status for response
+	providerName := s.providerManager.GetProviderName()
+	ragStatus := s.ragEnforcer.GetRAGStatus()
+
+	// Calculate latency
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("request completed", "status", http.StatusOK, "latency_ms", latency)
+
+	// Return success response with new provider name and RAG status
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"mode":       req.Mode,
+		"provider":   providerName,
+		"rag_status": ragStatus,
+		"latency_ms": latency,
+	})
 }

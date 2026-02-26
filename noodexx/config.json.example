@@ -1,0 +1,52 @@
+{
+  "local_provider": {
+    "type": "ollama",
+    "ollama_endpoint": "http://localhost:11434",
+    "ollama_embed_model": "nomic-embed-text:latest",
+    "ollama_chat_model": "noodexx-chat:latest"
+  },
+  "cloud_provider": {
+    "type": "openai",
+    "openai_key": "YOUR_OPENAI_API_KEY_HERE",
+    "openai_embed_model": "text-embedding-3-small",
+    "openai_chat_model": "gpt-4"
+  },
+  "privacy": {
+    "enabled": false,
+    "use_local_ai": true,
+    "cloud_rag_policy": "no_rag"
+  },
+  "folders": [
+    "/tmp"
+  ],
+  "logging": {
+    "level": "info",
+    "debug_enabled": true,
+    "file": "debug.log",
+    "max_size_mb": 10,
+    "max_backups": 3
+  },
+  "guardrails": {
+    "max_file_size_mb": 10,
+    "allowed_extensions": [
+      ".txt",
+      ".md",
+      ".pdf",
+      ".html"
+    ],
+    "max_concurrent": 3,
+    "pii_detection": "normal",
+    "auto_summarize": true
+  },
+  "server": {
+    "port": 8080,
+    "bind_address": "127.0.0.1"
+  },
+  "user_mode": "multi",
+  "auth": {
+    "provider": "userpass",
+    "session_expiry_days": 7,
+    "lockout_threshold": 5,
+    "lockout_duration_minutes": 15
+  }
+}

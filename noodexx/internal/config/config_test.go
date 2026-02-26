@@ -649,3 +649,307 @@ func TestValidate_AuthProvider(t *testing.T) {
 		})
 	}
 }
+
+func TestProviderConfig_ValidateLocal(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         ProviderConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "Valid Ollama configuration",
+			cfg: ProviderConfig{
+				Type:             "ollama",
+				OllamaEndpoint:   "http://localhost:11434",
+				OllamaEmbedModel: "nomic-embed-text",
+				OllamaChatModel:  "llama3.2",
+			},
+			expectError: false,
+		},
+		{
+			name: "Valid Ollama with 127.0.0.1",
+			cfg: ProviderConfig{
+				Type:             "ollama",
+				OllamaEndpoint:   "http://127.0.0.1:11434",
+				OllamaEmbedModel: "nomic-embed-text",
+				OllamaChatModel:  "llama3.2",
+			},
+			expectError: false,
+		},
+		{
+			name: "Empty type is valid (not configured)",
+			cfg: ProviderConfig{
+				Type: "",
+			},
+			expectError: false,
+		},
+		{
+			name: "Invalid provider type for local",
+			cfg: ProviderConfig{
+				Type:             "openai",
+				OpenAIKey:        "test-key",
+				OpenAIEmbedModel: "text-embedding-3-small",
+				OpenAIChatModel:  "gpt-4",
+			},
+			expectError: true,
+			errorMsg:    "local provider must be Ollama",
+		},
+		{
+			name: "Missing Ollama endpoint",
+			cfg: ProviderConfig{
+				Type:             "ollama",
+				OllamaEndpoint:   "",
+				OllamaEmbedModel: "nomic-embed-text",
+				OllamaChatModel:  "llama3.2",
+			},
+			expectError: true,
+			errorMsg:    "Ollama endpoint is required",
+		},
+		{
+			name: "Non-localhost endpoint",
+			cfg: ProviderConfig{
+				Type:             "ollama",
+				OllamaEndpoint:   "http://192.168.1.100:11434",
+				OllamaEmbedModel: "nomic-embed-text",
+				OllamaChatModel:  "llama3.2",
+			},
+			expectError: true,
+			errorMsg:    "local provider must use localhost endpoint",
+		},
+		{
+			name: "Missing embed model",
+			cfg: ProviderConfig{
+				Type:             "ollama",
+				OllamaEndpoint:   "http://localhost:11434",
+				OllamaEmbedModel: "",
+				OllamaChatModel:  "llama3.2",
+			},
+			expectError: true,
+			errorMsg:    "Ollama models are required",
+		},
+		{
+			name: "Missing chat model",
+			cfg: ProviderConfig{
+				Type:             "ollama",
+				OllamaEndpoint:   "http://localhost:11434",
+				OllamaEmbedModel: "nomic-embed-text",
+				OllamaChatModel:  "",
+			},
+			expectError: true,
+			errorMsg:    "Ollama models are required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.ValidateLocal()
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected validation error, got nil")
+				} else if tt.errorMsg != "" && err.Error() != tt.errorMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestProviderConfig_ValidateCloud(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         ProviderConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "Valid OpenAI configuration",
+			cfg: ProviderConfig{
+				Type:             "openai",
+				OpenAIKey:        "sk-test-key",
+				OpenAIEmbedModel: "text-embedding-3-small",
+				OpenAIChatModel:  "gpt-4",
+			},
+			expectError: false,
+		},
+		{
+			name: "Valid Anthropic configuration",
+			cfg: ProviderConfig{
+				Type:               "anthropic",
+				AnthropicKey:       "sk-ant-test-key",
+				AnthropicChatModel: "claude-3-opus-20240229",
+			},
+			expectError: false,
+		},
+		{
+			name: "Empty type is valid (not configured)",
+			cfg: ProviderConfig{
+				Type: "",
+			},
+			expectError: false,
+		},
+		{
+			name: "Invalid provider type for cloud",
+			cfg: ProviderConfig{
+				Type:             "ollama",
+				OllamaEndpoint:   "http://localhost:11434",
+				OllamaEmbedModel: "nomic-embed-text",
+				OllamaChatModel:  "llama3.2",
+			},
+			expectError: true,
+			errorMsg:    "invalid cloud provider type: ollama",
+		},
+		{
+			name: "OpenAI missing API key",
+			cfg: ProviderConfig{
+				Type:             "openai",
+				OpenAIKey:        "",
+				OpenAIEmbedModel: "text-embedding-3-small",
+				OpenAIChatModel:  "gpt-4",
+			},
+			expectError: true,
+			errorMsg:    "OpenAI API key is required",
+		},
+		{
+			name: "OpenAI missing embed model",
+			cfg: ProviderConfig{
+				Type:             "openai",
+				OpenAIKey:        "sk-test-key",
+				OpenAIEmbedModel: "",
+				OpenAIChatModel:  "gpt-4",
+			},
+			expectError: true,
+			errorMsg:    "OpenAI models are required",
+		},
+		{
+			name: "OpenAI missing chat model",
+			cfg: ProviderConfig{
+				Type:             "openai",
+				OpenAIKey:        "sk-test-key",
+				OpenAIEmbedModel: "text-embedding-3-small",
+				OpenAIChatModel:  "",
+			},
+			expectError: true,
+			errorMsg:    "OpenAI models are required",
+		},
+		{
+			name: "Anthropic missing API key",
+			cfg: ProviderConfig{
+				Type:               "anthropic",
+				AnthropicKey:       "",
+				AnthropicChatModel: "claude-3-opus-20240229",
+			},
+			expectError: true,
+			errorMsg:    "Anthropic API key is required",
+		},
+		{
+			name: "Anthropic missing chat model",
+			cfg: ProviderConfig{
+				Type:               "anthropic",
+				AnthropicKey:       "sk-ant-test-key",
+				AnthropicChatModel: "",
+			},
+			expectError: true,
+			errorMsg:    "Anthropic chat model is required",
+		},
+		{
+			name: "Unknown cloud provider type",
+			cfg: ProviderConfig{
+				Type: "unknown",
+			},
+			expectError: true,
+			errorMsg:    "invalid cloud provider type: unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.ValidateCloud()
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected validation error, got nil")
+				} else if tt.errorMsg != "" && err.Error() != tt.errorMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestPrivacyConfig_ValidateRAGPolicy(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         PrivacyConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "Valid no_rag policy",
+			cfg: PrivacyConfig{
+				UseLocalAI:     true,
+				CloudRAGPolicy: "no_rag",
+			},
+			expectError: false,
+		},
+		{
+			name: "Valid allow_rag policy",
+			cfg: PrivacyConfig{
+				UseLocalAI:     false,
+				CloudRAGPolicy: "allow_rag",
+			},
+			expectError: false,
+		},
+		{
+			name: "Invalid RAG policy",
+			cfg: PrivacyConfig{
+				UseLocalAI:     true,
+				CloudRAGPolicy: "invalid",
+			},
+			expectError: true,
+			errorMsg:    "invalid RAG policy: invalid (must be 'no_rag' or 'allow_rag')",
+		},
+		{
+			name: "Empty RAG policy",
+			cfg: PrivacyConfig{
+				UseLocalAI:     true,
+				CloudRAGPolicy: "",
+			},
+			expectError: true,
+			errorMsg:    "invalid RAG policy:  (must be 'no_rag' or 'allow_rag')",
+		},
+		{
+			name: "Case-sensitive validation",
+			cfg: PrivacyConfig{
+				UseLocalAI:     true,
+				CloudRAGPolicy: "NO_RAG",
+			},
+			expectError: true,
+			errorMsg:    "invalid RAG policy: NO_RAG (must be 'no_rag' or 'allow_rag')",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.ValidateRAGPolicy()
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected validation error, got nil")
+				} else if tt.errorMsg != "" && err.Error() != tt.errorMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+			}
+		})
+	}
+}

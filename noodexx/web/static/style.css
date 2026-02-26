@@ -309,11 +309,39 @@ body {
    Dashboard Styles
    ============================================================================ */
 
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
 .dashboard h1 {
     font-size: 2rem;
     font-weight: 700;
-    margin-bottom: 2rem;
+    margin-bottom: 0;
     color: var(--text-primary);
+}
+
+.btn-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--error-color);
+    background: white;
+    color: var(--error-color);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-logout:hover {
+    background: var(--error-color);
+    color: white;
+    box-shadow: var(--shadow-md);
 }
 
 /* Stats Grid */
@@ -919,6 +947,18 @@ label {
     left: calc(var(--sidebar-collapsed-width) + 0.5rem);
     right: auto;
     min-width: 200px;
+}
+
+/* ============================================================================
+   Chat Icon Privacy Mode Colors
+   ============================================================================ */
+
+.chat-icon.local-mode {
+    color: var(--success-color);
+}
+
+.chat-icon.cloud-mode {
+    color: var(--error-color);
 }
 
 /* ============================================================================

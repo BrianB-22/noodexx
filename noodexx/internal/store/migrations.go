@@ -399,6 +399,25 @@ func addUserIDToChatMessages(ctx context.Context, tx *sql.Tx) error {
 		}
 	}
 
+	// Check if provider_mode column exists
+	var providerModeExists bool
+	err = tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) > 0 
+		FROM pragma_table_info('chat_messages') 
+		WHERE name = 'provider_mode'
+	`).Scan(&providerModeExists)
+	if err != nil {
+		return fmt.Errorf("failed to check provider_mode column: %w", err)
+	}
+
+	// Add provider_mode column if it doesn't exist
+	if !providerModeExists {
+		_, err = tx.ExecContext(ctx, `ALTER TABLE chat_messages ADD COLUMN provider_mode TEXT DEFAULT 'local'`)
+		if err != nil {
+			return fmt.Errorf("failed to add provider_mode column: %w", err)
+		}
+	}
+
 	return nil
 }
 

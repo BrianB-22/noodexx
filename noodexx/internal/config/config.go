@@ -9,14 +9,16 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Provider   ProviderConfig   `json:"provider"`
-	Privacy    PrivacyConfig    `json:"privacy"`
-	Folders    []string         `json:"folders"`
-	Logging    LoggingConfig    `json:"logging"`
-	Guardrails GuardrailsConfig `json:"guardrails"`
-	Server     ServerConfig     `json:"server"`
-	UserMode   string           `json:"user_mode"` // "single" or "multi"
-	Auth       AuthConfig       `json:"auth"`
+	Provider      ProviderConfig   `json:"provider,omitempty"` // Legacy single provider (for backward compatibility, omit if empty)
+	LocalProvider ProviderConfig   `json:"local_provider"`     // Local AI provider configuration
+	CloudProvider ProviderConfig   `json:"cloud_provider"`     // Cloud AI provider configuration
+	Privacy       PrivacyConfig    `json:"privacy"`
+	Folders       []string         `json:"folders"`
+	Logging       LoggingConfig    `json:"logging"`
+	Guardrails    GuardrailsConfig `json:"guardrails"`
+	Server        ServerConfig     `json:"server"`
+	UserMode      string           `json:"user_mode"` // "single" or "multi"
+	Auth          AuthConfig       `json:"auth"`
 }
 
 // ProviderConfig configures the LLM provider
@@ -35,7 +37,9 @@ type ProviderConfig struct {
 
 // PrivacyConfig controls privacy mode
 type PrivacyConfig struct {
-	Enabled bool `json:"enabled"`
+	Enabled        bool   `json:"enabled"`          // Legacy privacy mode (for backward compatibility)
+	UseLocalAI     bool   `json:"use_local_ai"`     // Privacy toggle state (true = local, false = cloud)
+	CloudRAGPolicy string `json:"cloud_rag_policy"` // "no_rag" or "allow_rag"
 }
 
 // LoggingConfig controls logging behavior
@@ -74,14 +78,15 @@ type AuthConfig struct {
 func Load(path string) (*Config, error) {
 	// Default configuration
 	cfg := &Config{
-		Provider: ProviderConfig{
-			Type:             "ollama",
-			OllamaEndpoint:   "http://localhost:11434",
-			OllamaEmbedModel: "nomic-embed-text",
-			OllamaChatModel:  "llama3.2",
-		},
+		// Provider field is intentionally left empty (legacy field, only populated if present in config file)
+		// LocalProvider and CloudProvider are intentionally left empty here
+		// They will be populated either from the config file or via migration
+		LocalProvider: ProviderConfig{},
+		CloudProvider: ProviderConfig{},
 		Privacy: PrivacyConfig{
-			Enabled: true,
+			Enabled:        true,
+			UseLocalAI:     true,
+			CloudRAGPolicy: "no_rag",
 		},
 		Folders: []string{},
 		Logging: LoggingConfig{
@@ -121,6 +126,9 @@ func Load(path string) (*Config, error) {
 		if err := json.Unmarshal(data, cfg); err != nil {
 			return nil, fmt.Errorf("failed to parse config file: %w", err)
 		}
+
+		// Migrate old single-provider config to dual-provider format if needed
+		cfg.migrateFromLegacyConfig()
 	} else {
 		// Create default config file
 		if err := cfg.Save(path); err != nil {
@@ -137,6 +145,21 @@ func Load(path string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// MarshalJSON implements custom JSON marshaling to exclude the legacy Provider field
+func (c *Config) MarshalJSON() ([]byte, error) {
+	// Create a type alias to avoid infinite recursion
+	type ConfigAlias Config
+
+	// Create an anonymous struct that excludes the Provider field
+	return json.Marshal(&struct {
+		*ConfigAlias
+		Provider *ProviderConfig `json:"provider,omitempty"`
+	}{
+		ConfigAlias: (*ConfigAlias)(c),
+		Provider:    nil, // Always nil to exclude from JSON
+	})
 }
 
 // Save writes configuration to file
@@ -215,31 +238,35 @@ func (c *Config) applyEnvOverrides() {
 
 // Validate checks configuration validity
 func (c *Config) Validate() error {
-	// Privacy mode validation
-	if c.Privacy.Enabled && c.Provider.Type != "ollama" {
-		return fmt.Errorf("privacy mode requires Ollama provider")
-	}
+	// Skip validation of legacy Provider field if it's empty (dual-provider mode)
+	if c.Provider.Type != "" {
+		// Legacy provider validation (for backward compatibility)
+		// Privacy mode validation
+		if c.Privacy.Enabled && c.Provider.Type != "ollama" {
+			return fmt.Errorf("privacy mode requires Ollama provider")
+		}
 
-	// Provider validation
-	switch c.Provider.Type {
-	case "ollama":
-		if c.Privacy.Enabled {
-			// Validate that Ollama endpoint is localhost
-			if !strings.HasPrefix(c.Provider.OllamaEndpoint, "http://localhost") &&
-				!strings.HasPrefix(c.Provider.OllamaEndpoint, "http://127.0.0.1") {
-				return fmt.Errorf("privacy mode requires localhost Ollama endpoint")
+		// Provider validation
+		switch c.Provider.Type {
+		case "ollama":
+			if c.Privacy.Enabled {
+				// Validate that Ollama endpoint is localhost
+				if !strings.HasPrefix(c.Provider.OllamaEndpoint, "http://localhost") &&
+					!strings.HasPrefix(c.Provider.OllamaEndpoint, "http://127.0.0.1") {
+					return fmt.Errorf("privacy mode requires localhost Ollama endpoint")
+				}
 			}
+		case "openai":
+			if c.Provider.OpenAIKey == "" {
+				return fmt.Errorf("OpenAI API key is required")
+			}
+		case "anthropic":
+			if c.Provider.AnthropicKey == "" {
+				return fmt.Errorf("Anthropic API key is required")
+			}
+		default:
+			return fmt.Errorf("unknown provider type: %s", c.Provider.Type)
 		}
-	case "openai":
-		if c.Provider.OpenAIKey == "" {
-			return fmt.Errorf("OpenAI API key is required")
-		}
-	case "anthropic":
-		if c.Provider.AnthropicKey == "" {
-			return fmt.Errorf("Anthropic API key is required")
-		}
-	default:
-		return fmt.Errorf("unknown provider type: %s", c.Provider.Type)
 	}
 
 	// Server validation
@@ -271,4 +298,97 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+// ValidateLocal validates local provider (Ollama) configuration
+func (p *ProviderConfig) ValidateLocal() error {
+	if p.Type == "" {
+		return nil // Not configured is valid
+	}
+	if p.Type != "ollama" {
+		return fmt.Errorf("local provider must be Ollama")
+	}
+	if p.OllamaEndpoint == "" {
+		return fmt.Errorf("Ollama endpoint is required")
+	}
+	if !strings.HasPrefix(p.OllamaEndpoint, "http://localhost") &&
+		!strings.HasPrefix(p.OllamaEndpoint, "http://127.0.0.1") {
+		return fmt.Errorf("local provider must use localhost endpoint")
+	}
+	if p.OllamaEmbedModel == "" || p.OllamaChatModel == "" {
+		return fmt.Errorf("Ollama models are required")
+	}
+	return nil
+}
+
+// ValidateCloud validates cloud provider (OpenAI/Anthropic) configuration
+func (p *ProviderConfig) ValidateCloud() error {
+	if p.Type == "" {
+		return nil // Not configured is valid
+	}
+	switch p.Type {
+	case "openai":
+		if p.OpenAIKey == "" {
+			return fmt.Errorf("OpenAI API key is required")
+		}
+		if p.OpenAIEmbedModel == "" || p.OpenAIChatModel == "" {
+			return fmt.Errorf("OpenAI models are required")
+		}
+	case "anthropic":
+		if p.AnthropicKey == "" {
+			return fmt.Errorf("Anthropic API key is required")
+		}
+		if p.AnthropicChatModel == "" {
+			return fmt.Errorf("Anthropic chat model is required")
+		}
+	default:
+		return fmt.Errorf("invalid cloud provider type: %s", p.Type)
+	}
+	return nil
+}
+
+// ValidateRAGPolicy validates RAG policy configuration
+func (p *PrivacyConfig) ValidateRAGPolicy() error {
+	if p.CloudRAGPolicy != "no_rag" && p.CloudRAGPolicy != "allow_rag" {
+		return fmt.Errorf("invalid RAG policy: %s (must be 'no_rag' or 'allow_rag')", p.CloudRAGPolicy)
+	}
+	return nil
+}
+
+// migrateFromLegacyConfig migrates old single-provider configuration to dual-provider format
+func (c *Config) migrateFromLegacyConfig() {
+	// Check if migration is needed (both new fields are empty but old Provider field has data)
+	if c.LocalProvider.Type == "" && c.CloudProvider.Type == "" && c.Provider.Type != "" {
+		// Migrate based on provider type
+		if c.Provider.Type == "ollama" {
+			// Ollama goes to local provider
+			c.LocalProvider = c.Provider
+		} else {
+			// OpenAI/Anthropic go to cloud provider
+			c.CloudProvider = c.Provider
+		}
+
+		// Migrate privacy mode
+		c.Privacy.UseLocalAI = c.Privacy.Enabled
+
+		// Set safe default for RAG policy
+		if c.Privacy.CloudRAGPolicy == "" {
+			c.Privacy.CloudRAGPolicy = "no_rag"
+		}
+	}
+
+	// If LocalProvider is still empty after migration, set defaults
+	if c.LocalProvider.Type == "" {
+		c.LocalProvider = ProviderConfig{
+			Type:             "ollama",
+			OllamaEndpoint:   "http://localhost:11434",
+			OllamaEmbedModel: "nomic-embed-text",
+			OllamaChatModel:  "llama3.2",
+		}
+	}
+
+	// Ensure CloudRAGPolicy has a valid default if not set
+	if c.Privacy.CloudRAGPolicy == "" {
+		c.Privacy.CloudRAGPolicy = "no_rag"
+	}
 }

@@ -158,6 +158,32 @@ Development statistics not tracked for earlier phases.
 - **Lines of Code**: ~100 lines
 - **Documentation**: MULTI_USER_MODE_FIXES.md created
 
+### Provider Mode Storage Implementation (February 26, 2026)
+- **Feature**: Store and display which AI provider generated each chat message
+- **Time**: ~1.5 hours
+- **Files Modified**: 11
+  - Database: migrations.go, models.go, store.go, datastore.go
+  - API: server.go, handlers.go
+  - Adapters: adapters.go
+  - Frontend: chat.html
+  - Tests: server_test.go, auth_handlers_test.go, handleask_integration_test.go
+- **Changes**:
+  - Added `provider_mode` column to `chat_messages` table
+  - Updated `SaveChatMessage()` to accept and store provider mode
+  - Modified `GetSessionHistory()` and `GetSessionMessages()` to retrieve provider mode
+  - Updated `handleAsk()` to determine current provider mode before saving
+  - Updated `handleSessionHistory()` to render provider class in HTML
+  - Removed temporary frontend fix that applied current mode to all messages
+  - Updated all interfaces and adapters
+  - Updated all test mocks
+- **Lines of Code**: ~150 lines
+- **Documentation**: PROVIDER_MODE_STORAGE.md created
+- **User Impact**: 
+  - Green icons for local AI messages
+  - Red icons for cloud AI messages
+  - Historical accuracy preserved when loading old sessions
+  - Backward compatible with existing messages (default to 'local')
+
 ---
 
 ## Future Phases

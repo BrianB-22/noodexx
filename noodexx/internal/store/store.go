@@ -345,8 +345,8 @@ func (s *Store) DeleteChunksBySource(ctx context.Context, userID int64, source s
 }
 
 // SaveMessage persists a chat message to the database
-// SaveChatMessage saves a chat message with user ownership
-func (s *Store) SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content string) error {
+// SaveChatMessage saves a chat message with user ownership and provider mode
+func (s *Store) SaveChatMessage(ctx context.Context, userID int64, sessionID, role, content, providerMode string) error {
 	// Start a transaction to update both chat_messages and sessions tables
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -354,9 +354,9 @@ func (s *Store) SaveChatMessage(ctx context.Context, userID int64, sessionID, ro
 	}
 	defer tx.Rollback()
 
-	// Insert the chat message
-	query := `INSERT INTO chat_messages (session_id, role, content, user_id) VALUES (?, ?, ?, ?)`
-	_, err = tx.ExecContext(ctx, query, sessionID, role, content, userID)
+	// Insert the chat message with provider_mode
+	query := `INSERT INTO chat_messages (session_id, role, content, user_id, provider_mode) VALUES (?, ?, ?, ?, ?)`
+	_, err = tx.ExecContext(ctx, query, sessionID, role, content, userID, providerMode)
 	if err != nil {
 		return fmt.Errorf("failed to save message: %w", err)
 	}
@@ -389,12 +389,12 @@ func (s *Store) SaveMessage(ctx context.Context, sessionID, role, content string
 	if err != nil {
 		return fmt.Errorf("failed to get local-default user: %w", err)
 	}
-	return s.SaveChatMessage(ctx, user.ID, sessionID, role, content)
+	return s.SaveChatMessage(ctx, user.ID, sessionID, role, content, "local")
 }
 
 // GetSessionHistory retrieves all messages for a given session ID ordered by creation time
 func (s *Store) GetSessionHistory(ctx context.Context, sessionID string) ([]ChatMessage, error) {
-	query := `SELECT id, session_id, role, content, created_at FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC`
+	query := `SELECT id, session_id, role, content, COALESCE(provider_mode, 'local') as provider_mode, created_at FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC`
 	rows, err := s.db.QueryContext(ctx, query, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query session history: %w", err)
@@ -405,7 +405,7 @@ func (s *Store) GetSessionHistory(ctx context.Context, sessionID string) ([]Chat
 	for rows.Next() {
 		var msg ChatMessage
 		var createdAtStr string
-		err := rows.Scan(&msg.ID, &msg.SessionID, &msg.Role, &msg.Content, &createdAtStr)
+		err := rows.Scan(&msg.ID, &msg.SessionID, &msg.Role, &msg.Content, &msg.ProviderMode, &createdAtStr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan message: %w", err)
 		}
@@ -541,7 +541,7 @@ func (s *Store) GetSessionMessages(ctx context.Context, userID int64, sessionID 
 
 	// Retrieve messages
 	query := `
-		SELECT id, session_id, role, content, created_at 
+		SELECT id, session_id, role, content, COALESCE(provider_mode, 'local') as provider_mode, created_at 
 		FROM chat_messages 
 		WHERE session_id = ? AND user_id = ?
 		ORDER BY created_at ASC
@@ -556,7 +556,7 @@ func (s *Store) GetSessionMessages(ctx context.Context, userID int64, sessionID 
 	for rows.Next() {
 		var msg ChatMessage
 		var createdAtStr string
-		err := rows.Scan(&msg.ID, &msg.SessionID, &msg.Role, &msg.Content, &createdAtStr)
+		err := rows.Scan(&msg.ID, &msg.SessionID, &msg.Role, &msg.Content, &msg.ProviderMode, &createdAtStr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan message: %w", err)
 		}
