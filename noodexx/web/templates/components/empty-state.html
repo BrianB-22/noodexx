@@ -1,0 +1,66 @@
+{{define "empty-state"}}
+{{- /* Empty State Component Template
+    
+    Props:
+    - Icon: string - SVG icon markup or icon class
+    - Heading: string (required) - main heading text
+    - Description: string - descriptive text explaining the empty state
+    - ActionText: string - optional action button text (e.g., "Add your first item")
+    - ActionURL: string - optional action button URL
+    - ActionOnClick: string - optional onclick handler for action button
+    - Class: string - additional CSS classes for the container
+    
+    Usage:
+    Display when lists or grids are empty to provide helpful guidance.
+    
+    Example:
+    {{template "empty-state" dict 
+        "Icon" "<svg>...</svg>"
+        "Heading" "No documents yet"
+        "Description" "Upload your first document to get started"
+        "ActionText" "Upload Document"
+        "ActionURL" "/library/upload"
+    }}
+*/ -}}
+
+<div class="flex flex-col items-center justify-center py-12 px-4 text-center {{.Class}}">
+    {{if .Icon}}
+    <!-- Icon -->
+    <div class="mb-4 text-surface-400 dark:text-surface-500">
+        {{.Icon}}
+    </div>
+    {{end}}
+    
+    <!-- Heading -->
+    <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-2">
+        {{.Heading}}
+    </h3>
+    
+    {{if .Description}}
+    <!-- Description -->
+    <p class="text-sm text-surface-600 dark:text-surface-400 max-w-sm mb-6">
+        {{.Description}}
+    </p>
+    {{end}}
+    
+    {{if .ActionText}}
+    <!-- Action Button -->
+    {{if .ActionURL}}
+    <a 
+        href="{{.ActionURL}}"
+        class="inline-flex items-center justify-center px-4 py-2 text-base font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors dark:bg-primary-600 dark:hover:bg-primary-700 dark:active:bg-primary-800"
+    >
+        {{.ActionText}}
+    </a>
+    {{else}}
+    <button 
+        type="button"
+        {{if .ActionOnClick}}onclick="{{.ActionOnClick}}"{{end}}
+        class="inline-flex items-center justify-center px-4 py-2 text-base font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors dark:bg-primary-600 dark:hover:bg-primary-700 dark:active:bg-primary-800"
+    >
+        {{.ActionText}}
+    </button>
+    {{end}}
+    {{end}}
+</div>
+{{end}}

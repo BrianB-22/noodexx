@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Responsive Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Viewport indicator */
+        body::before {
+            content: 'Viewport: ' attr(data-viewport);
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #000;
+            color: #fff;
+            padding: 8px 16px;
+            font-size: 14px;
+            z-index: 9999;
+            font-family: monospace;
+        }
+        
+        /* Touch target visualization */
+        .touch-target-test {
+            position: relative;
+        }
+        .touch-target-test::after {
+            content: attr(data-size);
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            font-size: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body data-viewport="">
+    <div class="p-8 max-w-7xl mx-auto mt-8">
+        <h1 class="text-2xl font-bold mb-4">Library Page Responsive Design Test</h1>
+        
+        <!-- Test Header Section -->
+        <div class="mb-8 p-4 bg-gray-100 rounded">
+            <h2 class="text-lg font-semibold mb-2">Header Section (flex-wrap test)</h2>
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div class="flex items-center gap-3">
+                    <svg width="24" height="24" viewBox="0 0 20 20" fill="currentColor" class="text-blue-600">
+                        <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/>
+                    </svg>
+                    <h1 class="text-2xl font-semibold">Document Library</h1>
+                </div>
+                
+                <div class="flex items-center gap-4 flex-wrap">
+                    <div class="flex items-center gap-2">
+                        <label for="tagFilter" class="text-sm">Filter by tag:</label>
+                        <select id="tagFilter" class="px-3 py-2 border rounded-lg text-sm min-w-[150px]">
+                            <option value="">All Documents</option>
+                            <option value="test">Test Tag</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Touch target test: Upload button -->
+                    <button class="touch-target-test inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" 
+                            data-size="Touch: ?x?">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="mr-2">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"/>
+                        </svg>
+                        Upload Files
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Grid Section -->
+        <div class="mb-8 p-4 bg-gray-100 rounded">
+            <h2 class="text-lg font-semibold mb-4">Document Grid (responsive columns test)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Sample Document Card 1 -->
+                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:border-blue-500 transition-all cursor-pointer group">
+                    <div class="flex justify-between items-start gap-2 mb-3">
+                        <h3 class="text-base font-semibold break-words flex-1">
+                            sample-document-1.pdf
+                        </h3>
+                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <!-- Touch target test: Add Tag button -->
+                            <button type="button" 
+                                    class="touch-target-test inline-flex items-center justify-center px-2 py-1 text-sm rounded-md bg-transparent hover:bg-gray-100 transition-colors"
+                                    data-size="Touch: ?x?"
+                                    aria-label="Add tag">
+                                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/>
+                                </svg>
+                            </button>
+                            <!-- Touch target test: Delete button -->
+                            <button type="button" 
+                                    class="touch-target-test inline-flex items-center justify-center px-2 py-1 text-sm rounded-md bg-transparent hover:bg-gray-100 transition-colors"
+                                    data-size="Touch: ?x?"
+                                    aria-label="Delete document">
+                                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 line-clamp-3 mb-4">
+                        This is a sample document preview text that demonstrates how the content will be displayed in the card.
+                    </p>
+                    <div class="flex justify-between items-center text-xs text-gray-500 pt-3 border-t border-gray-200">
+                        <div class="flex items-center gap-1">
+                            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
+                            </svg>
+                            <span>5 chunks</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                            <span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">test</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sample Document Card 2 -->
+                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                    <div class="flex justify-between items-start gap-2 mb-3">
+                        <h3 class="text-base font-semibold break-words flex-1">
+                            another-document.txt
+                        </h3>
+                    </div>
+                    <p class="text-sm text-gray-600 line-clamp-3 mb-4">
+                        Another sample document with different content.
+                    </p>
+                    <div class="flex justify-between items-center text-xs text-gray-500 pt-3 border-t border-gray-200">
+                        <div class="flex items-center gap-1">
+                            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
+                            </svg>
+                            <span>3 chunks</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sample Document Card 3 -->
+                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                    <div class="flex justify-between items-start gap-2 mb-3">
+                        <h3 class="text-base font-semibold break-words flex-1">
+                            third-document.md
+                        </h3>
+                    </div>
+                    <p class="text-sm text-gray-600 line-clamp-3 mb-4">
+                        A third sample document for testing the grid layout.
+                    </p>
+                    <div class="flex justify-between items-center text-xs text-gray-500 pt-3 border-t border-gray-200">
+                        <div class="flex items-center gap-1">
+                            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
+                            </svg>
+                            <span>8 chunks</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Results -->
+        <div class="p-4 bg-green-100 rounded">
+            <h2 class="text-lg font-semibold mb-2">Test Results</h2>
+            <div id="test-results" class="space-y-2 text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        // Update viewport indicator
+        function updateViewport() {
+            const width = window.innerWidth;
+            let viewport = '';
+            if (width < 768) {
+                viewport = `Mobile (${width}px) - Should show 1 column`;
+            } else if (width < 1024) {
+                viewport = `Tablet (${width}px) - Should show 2 columns`;
+            } else {
+                viewport = `Desktop (${width}px) - Should show 3 columns`;
+            }
+            document.body.setAttribute('data-viewport', viewport);
+        }
+
+        // Measure touch targets
+        function measureTouchTargets() {
+            const results = [];
+            const buttons = document.querySelectorAll('.touch-target-test');
+            
+            buttons.forEach((btn, index) => {
+                const rect = btn.getBoundingClientRect();
+                const width = Math.round(rect.width);
+                const height = Math.round(rect.height);
+                const label = btn.getAttribute('aria-label') || btn.textContent.trim();
+                
+                // Update the data-size attribute
+                btn.setAttribute('data-size', `${width}x${height}px`);
+                
+                // Check if meets 44x44px minimum
+                const meetsStandard = width >= 44 && height >= 44;
+                const status = meetsStandard ? '✓ PASS' : '✗ FAIL';
+                const color = meetsStandard ? 'text-green-700' : 'text-red-700';
+                
+                results.push({
+                    label,
+                    width,
+                    height,
+                    status,
+                    color,
+                    meetsStandard
+                });
+            });
+            
+            return results;
+        }
+
+        // Display test results
+        function displayResults() {
+            const results = measureTouchTargets();
+            const resultsDiv = document.getElementById('test-results');
+            
+            let html = '<div class="font-semibold mb-2">Touch Target Measurements (Minimum: 44x44px):</div>';
+            results.forEach(result => {
+                html += `<div class="${result.color}">
+                    ${result.status} ${result.label}: ${result.width}x${result.height}px
+                </div>`;
+            });
+            
+            const passCount = results.filter(r => r.meetsStandard).length;
+            const totalCount = results.length;
+            
+            html += `<div class="mt-4 font-semibold">
+                Summary: ${passCount}/${totalCount} touch targets meet accessibility standards
+            </div>`;
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        // Run tests on load and resize
+        updateViewport();
+        displayResults();
+        
+        window.addEventListener('resize', () => {
+            updateViewport();
+            displayResults();
+        });
+    </script>
+</body>
+</html>

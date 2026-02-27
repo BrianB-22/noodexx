@@ -1,0 +1,154 @@
+{{define "loading-state"}}
+{{- /* Loading State Component Template
+    
+    Props:
+    - Type: string (required) - "skeleton" or "spinner"
+    - Rows: int - number of skeleton rows to display (default: 3, only used for skeleton type)
+    - Class: string - additional CSS classes for the container
+    
+    Usage:
+    Display during async operations to indicate loading state.
+    
+    Skeleton Example (for list/table loading):
+    {{template "loading-state" dict 
+        "Type" "skeleton"
+        "Rows" 5
+    }}
+    
+    Spinner Example (for general loading):
+    {{template "loading-state" dict 
+        "Type" "spinner"
+    }}
+*/ -}}
+
+{{- /* Validate and default type */ -}}
+{{- $type := "spinner" -}}
+{{- if .Type -}}
+    {{- if or (eq .Type "skeleton") (eq .Type "spinner") -}}
+        {{- $type = .Type -}}
+    {{- end -}}
+{{- end -}}
+
+{{- /* Default rows for skeleton */ -}}
+{{- $rows := 3 -}}
+{{- if .Rows -}}
+    {{- if ge .Rows 1 -}}
+        {{- $rows = .Rows -}}
+    {{- end -}}
+{{- end -}}
+
+{{if eq $type "skeleton"}}
+<!-- Skeleton Loading State -->
+<div class="space-y-3 {{.Class}}" role="status" aria-label="Loading content">
+    {{if ge $rows 1}}
+    <div class="animate-pulse">
+        <div class="flex items-center space-x-4">
+            <!-- Avatar/Icon placeholder -->
+            <div class="rounded-full bg-surface-200 dark:bg-surface-700 h-10 w-10"></div>
+            
+            <!-- Content placeholder -->
+            <div class="flex-1 space-y-2">
+                <!-- Title line -->
+                <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded w-3/4"></div>
+                <!-- Subtitle line -->
+                <div class="h-3 bg-surface-200 dark:bg-surface-700 rounded w-1/2"></div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+    {{if ge $rows 2}}
+    <div class="animate-pulse">
+        <div class="flex items-center space-x-4">
+            <!-- Avatar/Icon placeholder -->
+            <div class="rounded-full bg-surface-200 dark:bg-surface-700 h-10 w-10"></div>
+            
+            <!-- Content placeholder -->
+            <div class="flex-1 space-y-2">
+                <!-- Title line -->
+                <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded w-3/4"></div>
+                <!-- Subtitle line -->
+                <div class="h-3 bg-surface-200 dark:bg-surface-700 rounded w-1/2"></div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+    {{if ge $rows 3}}
+    <div class="animate-pulse">
+        <div class="flex items-center space-x-4">
+            <!-- Avatar/Icon placeholder -->
+            <div class="rounded-full bg-surface-200 dark:bg-surface-700 h-10 w-10"></div>
+            
+            <!-- Content placeholder -->
+            <div class="flex-1 space-y-2">
+                <!-- Title line -->
+                <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded w-3/4"></div>
+                <!-- Subtitle line -->
+                <div class="h-3 bg-surface-200 dark:bg-surface-700 rounded w-1/2"></div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+    {{if ge $rows 4}}
+    <div class="animate-pulse">
+        <div class="flex items-center space-x-4">
+            <!-- Avatar/Icon placeholder -->
+            <div class="rounded-full bg-surface-200 dark:bg-surface-700 h-10 w-10"></div>
+            
+            <!-- Content placeholder -->
+            <div class="flex-1 space-y-2">
+                <!-- Title line -->
+                <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded w-3/4"></div>
+                <!-- Subtitle line -->
+                <div class="h-3 bg-surface-200 dark:bg-surface-700 rounded w-1/2"></div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+    {{if ge $rows 5}}
+    <div class="animate-pulse">
+        <div class="flex items-center space-x-4">
+            <!-- Avatar/Icon placeholder -->
+            <div class="rounded-full bg-surface-200 dark:bg-surface-700 h-10 w-10"></div>
+            
+            <!-- Content placeholder -->
+            <div class="flex-1 space-y-2">
+                <!-- Title line -->
+                <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded w-3/4"></div>
+                <!-- Subtitle line -->
+                <div class="h-3 bg-surface-200 dark:bg-surface-700 rounded w-1/2"></div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+    <span class="sr-only">Loading...</span>
+</div>
+
+{{else if eq $type "spinner"}}
+<!-- Spinner Loading State -->
+<div class="flex items-center justify-center py-12 {{.Class}}" role="status" aria-label="Loading">
+    <svg 
+        class="animate-spin h-10 w-10 text-primary-600 dark:text-primary-400" 
+        xmlns="http://www.w3.org/2000/svg" 
+        fill="none" 
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+    >
+        <circle 
+            class="opacity-25" 
+            cx="12" 
+            cy="12" 
+            r="10" 
+            stroke="currentColor" 
+            stroke-width="4"
+        ></circle>
+        <path 
+            class="opacity-75" 
+            fill="currentColor" 
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path>
+    </svg>
+    <span class="sr-only">Loading...</span>
+</div>
+{{end}}
+
+{{end}}

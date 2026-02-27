@@ -83,6 +83,11 @@ func (s *Store) runMigrations(ctx context.Context) error {
 		return fmt.Errorf("failed to add user_id to watched_folders: %w", err)
 	}
 
+	// Add dark_mode column to users table (Phase 5)
+	if err = addDarkModeToUsers(ctx, tx); err != nil {
+		return fmt.Errorf("failed to add dark_mode to users: %w", err)
+	}
+
 	// Run Phase 3 to Phase 4 data migration
 	// This must happen after tables and columns are created but before indexes
 	if err = migratePhase3ToPhase4(ctx, tx, s.userMode); err != nil {
@@ -706,6 +711,30 @@ func verifyMigration(ctx context.Context, tx *sql.Tx, localDefaultID int64, expe
 	}
 	if nullFolders > 0 {
 		return fmt.Errorf("found %d watched_folders with NULL user_id", nullFolders)
+	}
+
+	return nil
+}
+
+// addDarkModeToUsers adds dark_mode column to users table (Phase 5)
+func addDarkModeToUsers(ctx context.Context, tx *sql.Tx) error {
+	// Check if dark_mode column exists
+	var darkModeExists bool
+	err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) > 0 
+		FROM pragma_table_info('users') 
+		WHERE name = 'dark_mode'
+	`).Scan(&darkModeExists)
+	if err != nil {
+		return fmt.Errorf("failed to check dark_mode column: %w", err)
+	}
+
+	// Add dark_mode column if it doesn't exist
+	if !darkModeExists {
+		_, err = tx.ExecContext(ctx, `ALTER TABLE users ADD COLUMN dark_mode BOOLEAN DEFAULT 0`)
+		if err != nil {
+			return fmt.Errorf("failed to add dark_mode column: %w", err)
+		}
 	}
 
 	return nil

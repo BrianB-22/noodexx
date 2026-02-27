@@ -70,6 +70,7 @@ type User struct {
 	MustChangePassword bool
 	CreatedAt          time.Time
 	LastLogin          time.Time
+	DarkMode           bool
 }
 
 // SessionToken represents an authentication session token

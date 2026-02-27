@@ -1,19 +1,21 @@
 {{define "library-content"}}
-<div class="library-container">
+<div class="p-8 max-w-7xl mx-auto">
     <!-- Library Header -->
-    <div class="library-header">
-        <div class="library-title">
-            <svg width="24" height="24" viewBox="0 0 20 20" fill="currentColor">
+    <div class="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <div class="flex items-center gap-3">
+            <svg width="24" height="24" viewBox="0 0 20 20" fill="currentColor" class="text-primary-600 dark:text-primary-400">
                 <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/>
             </svg>
-            <h1>Document Library</h1>
+            <h1 class="text-2xl font-semibold text-surface-900 dark:text-surface-100">Document Library</h1>
         </div>
         
-        <div class="library-controls">
+        <div class="flex items-center gap-4 flex-wrap">
             <!-- Tag Filter Dropdown -->
-            <div class="filter-group">
-                <label for="tagFilter">Filter by tag:</label>
-                <select id="tagFilter" class="tag-filter" onchange="filterByTag(this.value)">
+            <div class="flex items-center gap-2">
+                <label for="tagFilter" class="text-sm text-surface-600 dark:text-surface-400">Filter by tag:</label>
+                <select id="tagFilter" 
+                        class="px-3 py-2 border border-surface-300 dark:border-surface-600 rounded-lg bg-white dark:bg-surface-800 text-surface-900 dark:text-surface-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[150px]" 
+                        onchange="filterByTag(this.value)">
                     <option value="">All Documents</option>
                     {{range .Tags}}
                     <option value="{{.}}" {{if eq . $.SelectedTag}}selected{{end}}>{{.}}</option>
@@ -22,8 +24,13 @@
             </div>
             
             <!-- Upload Button -->
-            <button class="btn-primary" onclick="document.getElementById('fileInput').click()">
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            <button 
+                type="button"
+                onclick="document.getElementById('fileInput').click()"
+                aria-label="Upload files"
+                class="inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-base rounded-lg bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 focus:ring-primary-500 dark:bg-primary-600 dark:hover:bg-primary-700 dark:active:bg-primary-800"
+            >
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="mr-2">
                     <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"/>
                 </svg>
                 Upload Files
@@ -33,46 +40,38 @@
     </div>
 
     <!-- Drop Zone Overlay -->
-    <div id="dropZone" class="drop-zone hidden">
-        <div class="drop-zone-content">
-            <svg width="64" height="64" viewBox="0 0 20 20" fill="currentColor">
+    <div id="dropZone" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="text-center text-white p-12 border-3 border-dashed border-white/50 rounded-xl bg-white/10 transition-all" id="dropZoneContent">
+            <svg width="64" height="64" viewBox="0 0 20 20" fill="currentColor" class="mx-auto mb-4 opacity-80">
                 <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"/>
             </svg>
-            <h2>Drop files here to upload</h2>
-            <p>Supports .txt, .md, and .pdf files</p>
+            <h2 class="text-2xl font-semibold mb-2">Drop files here to upload</h2>
+            <p class="opacity-80">Supports .txt, .md, and .pdf files</p>
         </div>
     </div>
 
     <!-- Document Grid -->
     <div id="library-grid" 
-         class="document-grid"
+         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
          hx-get="/api/library{{if .SelectedTag}}?tag={{.SelectedTag}}{{end}}"
          hx-trigger="load, refresh"
          hx-swap="innerHTML">
-        <!-- Documents will be loaded here via HTMX -->
-        <!-- 
-            NOTE: Server-side handler should render document cards with:
-            1. Visibility indicators in document-meta section:
-               - Private: <span class="visibility-indicator visibility-private">
-                            <svg>lock icon</svg> Private
-                          </span>
-               - Shared: <span class="visibility-indicator visibility-shared">
-                           <svg>people icon</svg> Shared (count)
-                         </span>
-               - Public: <span class="visibility-indicator visibility-public">
-                           <svg>globe icon</svg> Public
-                         </span>
-            2. Share button in document-actions:
-               - <button class="share-button" disabled title="Sharing coming in Phase 5">
-                   <svg>share icon</svg> Share
-                 </button>
-        -->
-        <div class="library-loading">
-            <div class="loading-spinner"></div>
-            <p>Loading documents...</p>
-        </div>
+        <!-- Loading State -->
+        {{template "loading-state" dict 
+            "Type" "skeleton"
+            "Rows" 3
+        }}
     </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+{{template "modal" dict 
+    "ID" "confirm-delete"
+    "Title" "Confirm Deletion"
+    "Size" "md"
+    "Content" "<p class=\"text-surface-700 dark:text-surface-300\">Are you sure you want to delete \"<span id=\"delete-doc-name\" class=\"font-semibold\"></span>\"? This will remove all chunks for this document.</p>"
+    "Actions" "<button type=\"button\" class=\"inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-base rounded-lg bg-surface-200 text-surface-900 hover:bg-surface-300 active:bg-surface-400 focus:ring-surface-500 dark:bg-surface-700 dark:text-surface-100 dark:hover:bg-surface-600 dark:active:bg-surface-500\" @click=\"open = false\">Cancel</button><button type=\"button\" id=\"confirm-delete-btn\" class=\"inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-base rounded-lg bg-error-600 text-white hover:bg-error-700 active:bg-error-800 focus:ring-error-500 dark:bg-error-500 dark:hover:bg-error-600 dark:active:bg-error-700\">Delete</button>"
+}}
 
 <script>
 // Drag and drop functionality
@@ -80,7 +79,7 @@ let dragCounter = 0;
 
 document.addEventListener('DOMContentLoaded', function() {
     const dropZone = document.getElementById('dropZone');
-    const libraryContainer = document.querySelector('.library-container');
+    const dropZoneContent = document.getElementById('dropZoneContent');
     
     // Prevent default drag behaviors on the entire page
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -110,6 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
         dragCounter--;
         if (dragCounter === 0) {
             dropZone.classList.add('hidden');
+            dropZoneContent.classList.remove('scale-105', 'border-primary-500', 'bg-primary-500/20');
         }
     });
     
@@ -117,6 +117,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.body.addEventListener('drop', function(e) {
         dragCounter = 0;
         dropZone.classList.add('hidden');
+        dropZoneContent.classList.remove('scale-105', 'border-primary-500', 'bg-primary-500/20');
         
         const files = e.dataTransfer.files;
         if (files.length > 0) {
@@ -126,12 +127,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Highlight drop zone when hovering over it
     dropZone.addEventListener('dragenter', function() {
-        this.classList.add('drop-zone-active');
+        dropZoneContent.classList.add('scale-105', 'border-primary-500', 'bg-primary-500/20');
     });
     
     dropZone.addEventListener('dragleave', function(e) {
-        if (e.target === this) {
-            this.classList.remove('drop-zone-active');
+        if (e.target === dropZone) {
+            dropZoneContent.classList.remove('scale-105', 'border-primary-500', 'bg-primary-500/20');
         }
     });
 });
@@ -163,9 +164,12 @@ async function uploadFiles(files) {
     let errorCount = 0;
     
     // Show uploading toast
-    if (typeof showToast === 'function') {
-        showToast(`Uploading ${fileArray.length} file(s)...`, 'info');
-    }
+    window.dispatchEvent(new CustomEvent('toast', {
+        detail: {
+            variant: 'info',
+            message: `Uploading ${fileArray.length} file(s)...`
+        }
+    }));
     
     // Upload files sequentially to avoid overwhelming the server
     for (const file of fileArray) {
@@ -180,9 +184,12 @@ async function uploadFiles(files) {
     
     // Show results
     if (successCount > 0) {
-        if (typeof showToast === 'function') {
-            showToast(`Successfully uploaded ${successCount} file(s)`, 'success');
-        }
+        window.dispatchEvent(new CustomEvent('toast', {
+            detail: {
+                variant: 'success',
+                message: `Successfully uploaded ${successCount} file(s)`
+            }
+        }));
         // Refresh the library grid
         if (typeof htmx !== 'undefined') {
             htmx.trigger('#library-grid', 'refresh');
@@ -190,9 +197,12 @@ async function uploadFiles(files) {
     }
     
     if (errorCount > 0) {
-        if (typeof showToast === 'function') {
-            showToast(`Failed to upload ${errorCount} file(s)`, 'error');
-        }
+        window.dispatchEvent(new CustomEvent('toast', {
+            detail: {
+                variant: 'error',
+                message: `Failed to upload ${errorCount} file(s)`
+            }
+        }));
     }
     
     // Clear the file input
@@ -222,7 +232,7 @@ async function uploadFile(file) {
 
 // Get list of existing document names from the DOM
 function getExistingDocuments() {
-    const cards = document.querySelectorAll('.document-card');
+    const cards = document.querySelectorAll('[data-source]');
     const sources = [];
     cards.forEach(card => {
         const source = card.getAttribute('data-source');
@@ -252,40 +262,62 @@ function filterByTag(tag) {
 
 // Delete a document
 function deleteDocument(source) {
-    if (!confirm(`Are you sure you want to delete "${source}"? This will remove all chunks for this document.`)) {
-        return;
-    }
+    // Set the document name in the modal
+    document.getElementById('delete-doc-name').textContent = source;
     
-    fetch('/api/delete', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-            source: source
+    // Set up the delete button handler
+    const deleteBtn = document.getElementById('confirm-delete-btn');
+    deleteBtn.onclick = function() {
+        fetch('/api/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                source: source
+            })
         })
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Delete failed');
-        }
-        return response.text();
-    })
-    .then(() => {
-        if (typeof showToast === 'function') {
-            showToast('Document deleted successfully', 'success');
-        }
-        // Refresh the library grid
-        if (typeof htmx !== 'undefined') {
-            htmx.trigger('#library-grid', 'refresh');
-        }
-    })
-    .catch(error => {
-        console.error('Failed to delete document:', error);
-        if (typeof showToast === 'function') {
-            showToast('Failed to delete document', 'error');
-        }
-    });
+        .then(response => {
+            console.log('Delete response status:', response.status, response.ok);
+            if (!response.ok) {
+                throw new Error('Delete failed with status: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Delete successful:', data);
+            window.dispatchEvent(new CustomEvent('toast', {
+                detail: {
+                    variant: 'success',
+                    message: 'Document deleted successfully'
+                }
+            }));
+            // Close modal using Alpine's $el and Alpine global
+            const modalOverlay = document.querySelector('[x-show="open"][role="dialog"]');
+            if (modalOverlay && modalOverlay.closest('[x-data]')) {
+                const alpineComponent = modalOverlay.closest('[x-data]');
+                if (window.Alpine) {
+                    window.Alpine.$data(alpineComponent).open = false;
+                }
+            }
+            // Refresh the library grid
+            if (typeof htmx !== 'undefined') {
+                htmx.trigger('#library-grid', 'refresh');
+            }
+        })
+        .catch(error => {
+            console.error('Failed to delete document:', error);
+            window.dispatchEvent(new CustomEvent('toast', {
+                detail: {
+                    variant: 'error',
+                    message: 'Failed to delete document: ' + error.message
+                }
+            }));
+        });
+    };
+    
+    // Open the modal
+    window.dispatchEvent(new CustomEvent('open-modal-confirm-delete'));
 }
 
 // Add tag to a document
@@ -312,23 +344,29 @@ function addTag(source) {
         return response.text();
     })
     .then(() => {
-        if (typeof showToast === 'function') {
-            showToast('Tag added successfully', 'success');
-        }
+        window.dispatchEvent(new CustomEvent('toast', {
+            detail: {
+                variant: 'success',
+                message: 'Tag added successfully'
+            }
+        }));
         // Refresh the library grid and page to update tag filter
         window.location.reload();
     })
     .catch(error => {
         console.error('Failed to add tag:', error);
-        if (typeof showToast === 'function') {
-            showToast('Failed to add tag', 'error');
-        }
+        window.dispatchEvent(new CustomEvent('toast', {
+            detail: {
+                variant: 'error',
+                message: 'Failed to add tag'
+            }
+        }));
     });
 }
 
 // Expand document to show all chunks
 function expandDocument(source) {
-    const card = event.target.closest('.document-card');
+    const card = event.target.closest('[data-source]');
     if (!card) return;
     
     const chunksContainer = card.querySelector('.document-chunks');
@@ -349,265 +387,19 @@ function expandDocument(source) {
             })
             .catch(error => {
                 console.error('Failed to load chunks:', error);
-                if (typeof showToast === 'function') {
-                    showToast('Failed to load document chunks', 'error');
-                }
+                window.dispatchEvent(new CustomEvent('toast', {
+                    detail: {
+                        variant: 'error',
+                        message: 'Failed to load document chunks'
+                    }
+                }));
             });
     }
 }
 </script>
 
 <style>
-/* Library Container */
-.library-container {
-    padding: 2rem;
-    max-width: 1400px;
-    margin: 0 auto;
-    position: relative;
-}
-
-/* Library Header */
-.library-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.library-title {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    color: var(--text);
-}
-
-.library-title svg {
-    color: var(--primary);
-}
-
-.library-title h1 {
-    margin: 0;
-    font-size: 1.75rem;
-    font-weight: 600;
-}
-
-.library-controls {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.filter-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.filter-group label {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-}
-
-.tag-filter {
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface);
-    color: var(--text);
-    font-size: 0.875rem;
-    cursor: pointer;
-    min-width: 150px;
-}
-
-.tag-filter:focus {
-    outline: none;
-    border-color: var(--primary);
-}
-
-/* Drop Zone Overlay */
-.drop-zone {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(4px);
-    transition: opacity 0.2s;
-}
-
-.drop-zone.hidden {
-    display: none;
-}
-
-.drop-zone-content {
-    text-align: center;
-    color: white;
-    padding: 3rem;
-    border: 3px dashed rgba(255, 255, 255, 0.5);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.1);
-    transition: all 0.2s;
-}
-
-.drop-zone-active .drop-zone-content {
-    border-color: var(--primary);
-    background: rgba(79, 70, 229, 0.2);
-    transform: scale(1.05);
-}
-
-.drop-zone-content svg {
-    opacity: 0.8;
-    margin-bottom: 1rem;
-}
-
-.drop-zone-content h2 {
-    margin: 0 0 0.5rem;
-    font-size: 1.5rem;
-}
-
-.drop-zone-content p {
-    margin: 0;
-    opacity: 0.8;
-}
-
-/* Document Grid */
-.document-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.5rem;
-}
-
-.library-loading {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4rem 2rem;
-    color: var(--text-secondary);
-}
-
-.loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid var(--border);
-    border-top-color: var(--primary);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 1rem;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Document Card */
-.document-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.5rem;
-    transition: all 0.2s;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.document-card:hover {
-    border-color: var(--primary);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
-}
-
-.document-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.5rem;
-}
-
-.document-title {
-    flex: 1;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0;
-    word-break: break-word;
-}
-
-.document-actions {
-    display: flex;
-    gap: 0.25rem;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-
-.document-card:hover .document-actions {
-    opacity: 1;
-}
-
-.document-preview {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    line-height: 1.5;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-}
-
-.document-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--border);
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.document-visibility {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.document-chunk-count {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.document-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.tag {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    background: var(--primary-light);
-    color: var(--primary);
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
+/* Document chunks expansion */
 .document-chunks {
     max-height: 0;
     overflow: hidden;
@@ -618,127 +410,21 @@ function expandDocument(source) {
     max-height: 500px;
     overflow-y: auto;
     padding-top: 1rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid;
+    @apply border-surface-200 dark:border-surface-700;
 }
 
 .chunk-item {
-    padding: 0.75rem;
-    background: var(--background);
-    border-radius: 6px;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-    line-height: 1.5;
-    color: var(--text);
+    @apply p-3 bg-surface-50 dark:bg-surface-900 rounded-md mb-2 text-sm leading-relaxed text-surface-900 dark:text-surface-100;
 }
 
 .chunk-item:last-child {
     margin-bottom: 0;
 }
 
-/* Visibility Indicators */
-.visibility-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-.visibility-indicator svg {
-    width: 12px;
-    height: 12px;
-}
-
-.visibility-private {
-    background: var(--background);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-}
-
-.visibility-shared {
-    background: rgba(59, 130, 246, 0.1);
-    color: #3b82f6;
-    border: 1px solid rgba(59, 130, 246, 0.2);
-}
-
-.visibility-public {
-    background: rgba(16, 185, 129, 0.1);
-    color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.share-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.375rem 0.625rem;
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    cursor: not-allowed;
-    opacity: 0.6;
+/* Drop zone active state */
+#dropZoneContent {
     transition: all 0.2s;
-}
-
-.share-button svg {
-    width: 14px;
-    height: 14px;
-}
-
-.share-button:hover {
-    background: var(--background);
-}
-
-/* Empty State */
-.library-empty {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 4rem 2rem;
-    color: var(--text-secondary);
-}
-
-.library-empty svg {
-    opacity: 0.3;
-    margin-bottom: 1rem;
-}
-
-.library-empty h2 {
-    margin: 0 0 0.5rem;
-    color: var(--text);
-}
-
-.library-empty p {
-    margin: 0 0 1.5rem;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .library-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .library-controls {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .filter-group {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .tag-filter {
-        width: 100%;
-    }
-    
-    .document-grid {
-        grid-template-columns: 1fr;
-    }
 }
 </style>
 {{end}}

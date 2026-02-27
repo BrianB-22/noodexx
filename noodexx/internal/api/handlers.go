@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"noodexx/internal/auth"
 	"noodexx/internal/config"
 	"noodexx/internal/rag"
+	"sort"
 	"strings"
 	"time"
 )
@@ -20,6 +22,10 @@ import (
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	requestID := generateRequestID()
+
+	// Generate nonce for CSP
+	nonce := generateNonce()
+	setCSPHeader(w, nonce)
 
 	// Create logger with request context
 	logger := s.logger.WithContext("request_id", requestID).
@@ -34,6 +40,17 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Expires", "0")
 
 	ctx := r.Context()
+
+	// Get user ID from context
+	userID, err := auth.GetUserID(ctx)
+	var darkMode bool
+	if err == nil {
+		// Get user's dark mode preference
+		user, userErr := s.store.GetUserByID(ctx, userID)
+		if userErr == nil && user != nil {
+			darkMode = user.DarkMode
+		}
+	}
 
 	// Get document count
 	library, err := s.store.Library(ctx)
@@ -75,9 +92,15 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"PrivacyMode":   privacyMode,
 		"LastIngestion": lastIngestion,
 		"HasIngestions": !lastIngestion.IsZero(),
+		"UIStyle":       s.uiStyle,
+		"DarkMode":      darkMode,
+		"Nonce":         nonce,
 	}
 
 	logger.Debug("rendering dashboard template", "document_count", docCount)
+
+	// Set Content-Type header
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Render template
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
@@ -107,6 +130,19 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 
+	ctx := r.Context()
+
+	// Get user ID from context
+	userID, err := auth.GetUserID(ctx)
+	var darkMode bool
+	if err == nil {
+		// Get user's dark mode preference
+		user, userErr := s.store.GetUserByID(ctx, userID)
+		if userErr == nil && user != nil {
+			darkMode = user.DarkMode
+		}
+	}
+
 	// Check if cloud provider is available
 	cloudProviderAvailable := false
 	if s.providerManager != nil {
@@ -119,6 +155,8 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		"Page":                   "chat",
 		"PrivacyMode":            s.config.PrivacyMode,
 		"CloudProviderAvailable": cloudProviderAvailable,
+		"UIStyle":                s.uiStyle,
+		"DarkMode":               darkMode,
 	}
 
 	// Render chat template
@@ -401,6 +439,13 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user's dark mode preference
+	var darkMode bool
+	user, userErr := s.store.GetUserByID(ctx, userID)
+	if userErr == nil && user != nil {
+		darkMode = user.DarkMode
+	}
+
 	// Get tag filter from query parameter
 	tagFilter := r.URL.Query().Get("tag")
 
@@ -427,33 +472,41 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 		filteredLibrary = library
 	}
 
+	// Collect all unique tags for the filter dropdown
+	tagSet := make(map[string]bool)
+	for _, entry := range library {
+		for _, tag := range entry.Tags {
+			tagSet[tag] = true
+		}
+	}
+	var allTags []string
+	for tag := range tagSet {
+		allTags = append(allTags, tag)
+	}
+	// Sort tags alphabetically
+	sort.Strings(allTags)
+
 	// Check if this is an HTMX request (return fragment)
 	if r.Header.Get("HX-Request") == "true" {
 		// Return HTML fragment with document cards
 		w.Header().Set("Content-Type", "text/html")
-		for _, entry := range filteredLibrary {
-			tagsHTML := ""
-			for _, tag := range entry.Tags {
-				tagsHTML += fmt.Sprintf(`<span class="tag">%s</span>`, tag)
-			}
 
-			preview := entry.Summary
-			if preview == "" && len(entry.Source) > 0 {
-				preview = "No summary available"
+		// If no documents, show empty state
+		if len(filteredLibrary) == 0 {
+			if err := s.templates.ExecuteTemplate(w, "library-empty", nil); err != nil {
+				logger.Error("request failed", "operation", "render_empty_state", "error", err.Error())
+				http.Error(w, "Failed to render empty state", http.StatusInternalServerError)
+				return
 			}
-			if len(preview) > 150 {
-				preview = preview[:150] + "..."
+		} else {
+			// Render document cards
+			for _, entry := range filteredLibrary {
+				if err := s.templates.ExecuteTemplate(w, "document-card", entry); err != nil {
+					logger.Error("request failed", "operation", "render_document_card", "error", err.Error())
+					http.Error(w, "Failed to render document card", http.StatusInternalServerError)
+					return
+				}
 			}
-
-			fmt.Fprintf(w, `<div class="document-card" data-source="%s">
-				<h3>%s</h3>
-				<p class="preview">%s</p>
-				<div class="card-footer">
-					<span class="chunk-count">%d chunks</span>
-					<div class="tags">%s</div>
-				</div>
-				<button class="delete-btn" onclick="deleteDocument('%s')">Delete</button>
-			</div>`, entry.Source, entry.Source, preview, entry.ChunkCount, tagsHTML, entry.Source)
 		}
 
 		latency := time.Since(start).Milliseconds()
@@ -467,7 +520,10 @@ func (s *Server) handleLibrary(w http.ResponseWriter, r *http.Request) {
 		"Page":        "library",
 		"PrivacyMode": s.config.PrivacyMode,
 		"Library":     filteredLibrary,
-		"TagFilter":   tagFilter,
+		"Tags":        allTags,
+		"SelectedTag": tagFilter,
+		"UIStyle":     s.uiStyle,
+		"DarkMode":    darkMode,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
@@ -622,6 +678,7 @@ func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
 	// Parse multipart form
 	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max
 		logger.Error("request failed", "operation", "parse_form", "error", err.Error())
+		w.Header().Set("HX-Trigger", `{"toast": {"variant": "error", "message": "Failed to parse form"}}`)
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
@@ -629,6 +686,7 @@ func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		logger.Error("request failed", "operation", "get_file", "error", err.Error())
+		w.Header().Set("HX-Trigger", `{"toast": {"variant": "error", "message": "Failed to get file"}}`)
 		http.Error(w, "Failed to get file", http.StatusBadRequest)
 		return
 	}
@@ -647,6 +705,7 @@ func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
 	// Ingest file
 	if err := s.ingestFile(ctx, file, header, tags); err != nil {
 		logger.Error("request failed", "operation", "ingest_file", "filename", header.Filename, "error", err.Error())
+		w.Header().Set("HX-Trigger", `{"toast": {"variant": "error", "message": "Upload failed"}}`)
 		http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -657,6 +716,7 @@ func (s *Server) handleIngestFile(w http.ResponseWriter, r *http.Request) {
 	// Broadcast WebSocket update
 	s.wsHub.Broadcast("ingestion", fmt.Sprintf("File '%s' ingested successfully", header.Filename))
 
+	w.Header().Set("HX-Trigger", `{"toast": {"variant": "success", "message": "Document uploaded successfully"}}`)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 
@@ -712,6 +772,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Error("request failed", "operation", "parse_request", "error", err.Error())
+		w.Header().Set("HX-Trigger", `{"toast": {"variant": "error", "message": "Invalid request"}}`)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
@@ -719,6 +780,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	// Delete document
 	if err := s.store.DeleteSource(ctx, req.Source); err != nil {
 		logger.Error("request failed", "operation", "delete_source", "source", req.Source, "error", err.Error())
+		w.Header().Set("HX-Trigger", `{"toast": {"variant": "error", "message": "Delete failed"}}`)
 		http.Error(w, "Delete failed", http.StatusInternalServerError)
 		return
 	}
@@ -729,6 +791,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	// Broadcast WebSocket update
 	s.wsHub.Broadcast("deletion", fmt.Sprintf("Document '%s' deleted", req.Source))
 
+	w.Header().Set("HX-Trigger", `{"toast": {"variant": "success", "message": "Document deleted successfully"}}`)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 
@@ -750,6 +813,30 @@ func generateRequestID() string {
 	bytes := make([]byte, 8)
 	rand.Read(bytes)
 	return hex.EncodeToString(bytes)
+}
+
+// generateNonce creates a cryptographically secure random nonce for CSP
+func generateNonce() string {
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+	return base64.StdEncoding.EncodeToString(bytes)
+}
+
+// setCSPHeader sets the Content-Security-Policy header with the given nonce
+func setCSPHeader(w http.ResponseWriter, nonce string) {
+	csp := fmt.Sprintf(
+		"default-src 'self'; "+
+			"script-src 'self' 'nonce-%s' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "+
+			"style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "+
+			"img-src 'self' data:; "+
+			"font-src 'self' data:; "+
+			"connect-src 'self' ws: wss:; "+
+			"frame-ancestors 'none'; "+
+			"base-uri 'self'; "+
+			"form-action 'self'",
+		nonce,
+	)
+	w.Header().Set("Content-Security-Policy", csp)
 }
 
 // formatRelativeTime formats a timestamp as relative time (e.g., "2 hours ago")
@@ -796,6 +883,19 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 
+	ctx := r.Context()
+
+	// Get user ID from context
+	userID, err := auth.GetUserID(ctx)
+	var darkMode bool
+	if err == nil {
+		// Get user's dark mode preference
+		user, userErr := s.store.GetUserByID(ctx, userID)
+		if userErr == nil && user != nil {
+			darkMode = user.DarkMode
+		}
+	}
+
 	// Load current config from file to get latest values
 	cfg, err := config.Load(s.configPath)
 	if err != nil {
@@ -841,11 +941,20 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
+<<<<<<< HEAD
+		"Title":       "Settings",
+		"Page":        "settings",
+		"PrivacyMode": false,
+		"Config":      configData,
+		"UIStyle":     s.uiStyle,
+		"DarkMode":    darkMode,
+=======
 		"Title":                  "Settings",
 		"Page":                   "settings",
 		"PrivacyMode":            false,
 		"Config":                 configData,
 		"CloudProviderAvailable": cloudProviderAvailable,
+>>>>>>> fef74aa40b93f35407dc475fa539c208fa1d2cf2
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {
@@ -1134,12 +1243,31 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 
 	// Format as HTML fragment
 	var html strings.Builder
-	for _, entry := range entries {
-		html.WriteString(fmt.Sprintf(`<div class="activity-item">
-			<div class="activity-type">%s</div>
-			<div class="activity-details">%s</div>
-			<div class="activity-time">%s</div>
-		</div>`, entry.OperationType, entry.Details, formatRelativeTime(entry.Timestamp)))
+
+	// Handle empty state
+	if len(entries) == 0 {
+		html.WriteString(`<div class="flex flex-col items-center justify-center py-12 px-4 text-center">
+			<div class="mb-4 text-surface-400 dark:text-surface-500">
+				<svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+				</svg>
+			</div>
+			<h3 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-2">No activity yet</h3>
+			<p class="text-sm text-surface-600 dark:text-surface-400 max-w-sm">Your recent actions will appear here</p>
+		</div>`)
+	} else {
+		// Render activity items with Tailwind classes
+		html.WriteString(`<div class="space-y-3">`)
+		for _, entry := range entries {
+			html.WriteString(fmt.Sprintf(`<div class="flex items-start justify-between p-3 rounded-lg bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600 transition-colors">
+				<div class="flex-1 min-w-0">
+					<div class="text-sm font-medium text-surface-900 dark:text-surface-100">%s</div>
+					<div class="text-sm text-surface-600 dark:text-surface-400 mt-1 truncate">%s</div>
+				</div>
+				<div class="text-xs text-surface-500 dark:text-surface-500 ml-4 whitespace-nowrap">%s</div>
+			</div>`, entry.OperationType, entry.Details, formatRelativeTime(entry.Timestamp)))
+		}
+		html.WriteString(`</div>`)
 	}
 
 	w.Header().Set("Content-Type", "text/html")
@@ -2077,7 +2205,8 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare template data
 	data := map[string]interface{}{
-		"Title": "Login",
+		"Title":   "Login",
+		"UIStyle": s.uiStyle,
 	}
 
 	// Render login template
@@ -2097,7 +2226,8 @@ func (s *Server) handleRegisterPage(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare template data
 	data := map[string]interface{}{
-		"Title": "Register",
+		"Title":   "Register",
+		"UIStyle": s.uiStyle,
 	}
 
 	// Render register template
@@ -2117,7 +2247,8 @@ func (s *Server) handleChangePasswordPage(w http.ResponseWriter, r *http.Request
 
 	// Prepare template data
 	data := map[string]interface{}{
-		"Title": "Change Password",
+		"Title":   "Change Password",
+		"UIStyle": s.uiStyle,
 	}
 
 	// Render change-password template
@@ -2233,4 +2364,66 @@ func (s *Server) handlePrivacyToggle(w http.ResponseWriter, r *http.Request) {
 		"rag_status": ragStatus,
 		"latency_ms": latency,
 	})
+}
+
+// handleUpdatePreferences handles POST /api/user/preferences endpoint
+// Updates user preferences such as dark mode
+func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	requestID := generateRequestID()
+
+	// Create logger with request context
+	logger := s.logger.WithContext("request_id", requestID).
+		WithContext("method", r.Method).
+		WithContext("path", r.URL.Path)
+
+	logger.Debug("processing update preferences request")
+
+	if r.Method != http.MethodPost {
+		logger.Error("request failed", "operation", "method_check", "error", "method not allowed")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Extract user_id from context (set by auth middleware)
+	userID, err := auth.GetUserID(ctx)
+	if err != nil {
+		logger.Error("request failed", "operation", "get_user_id", "error", err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse request
+	var req struct {
+		DarkMode bool `json:"dark_mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Error("request failed", "operation", "parse_request", "error", err.Error())
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Update user dark mode preference
+	if err := s.store.UpdateUserDarkMode(ctx, userID, req.DarkMode); err != nil {
+		logger.Error("preferences update failed", "user_id", userID, "error", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Failed to update preferences",
+		})
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Preferences updated successfully",
+	})
+
+	latency := time.Since(start).Milliseconds()
+	logger.Debug("preferences update successful", "user_id", userID, "dark_mode", req.DarkMode, "latency_ms", latency)
 }

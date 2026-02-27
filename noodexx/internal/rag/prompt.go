@@ -24,7 +24,7 @@ func (pb *PromptBuilder) BuildPrompt(query string, chunks []Chunk) string {
 	// Existing logic for non-empty chunks (RAG enabled)
 	var sb strings.Builder
 
-	sb.WriteString("You are a helpful assistant. Answer the user's question using the provided context if it's relevant, or use your general knowledge if the context doesn't contain the answer.\n\n")
+	sb.WriteString("You are a helpful assistant. Use the following context to answer the user's question if it's relevant, or use your general knowledge if the context doesn't contain the answer.\n\n")
 	sb.WriteString("Context:\n")
 
 	for i, chunk := range chunks {
@@ -33,7 +33,7 @@ func (pb *PromptBuilder) BuildPrompt(query string, chunks []Chunk) string {
 
 	sb.WriteString("\n\nUser Question: ")
 	sb.WriteString(query)
-	sb.WriteString("\n\nAnswer: (Use the context if relevant, otherwise answer from your general knowledge)")
+	sb.WriteString("\n\nAnswer based on the context above if relevant, otherwise answer from your general knowledge.")
 
 	return sb.String()
 }

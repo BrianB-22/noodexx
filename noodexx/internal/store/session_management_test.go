@@ -37,7 +37,7 @@ func TestSaveChatMessage(t *testing.T) {
 
 	// Save a chat message
 	sessionID := "test-session-1"
-	err = store.SaveChatMessage(ctx, userID, sessionID, "user", "Hello, world!")
+	err = store.SaveChatMessage(ctx, userID, sessionID, "user", "Hello, world!", "")
 	if err != nil {
 		t.Fatalf("Failed to save chat message: %v", err)
 	}
@@ -80,18 +80,18 @@ func TestGetUserSessions(t *testing.T) {
 	}
 
 	// Create sessions for user1
-	err = store.SaveChatMessage(ctx, user1ID, "session-1", "user", "Message 1")
+	err = store.SaveChatMessage(ctx, user1ID, "session-1", "user", "Message 1", "")
 	if err != nil {
 		t.Fatalf("Failed to save message for user1 session-1: %v", err)
 	}
 
-	err = store.SaveChatMessage(ctx, user1ID, "session-2", "user", "Message 2")
+	err = store.SaveChatMessage(ctx, user1ID, "session-2", "user", "Message 2", "")
 	if err != nil {
 		t.Fatalf("Failed to save message for user1 session-2: %v", err)
 	}
 
 	// Create session for user2
-	err = store.SaveChatMessage(ctx, user2ID, "session-3", "user", "Message 3")
+	err = store.SaveChatMessage(ctx, user2ID, "session-3", "user", "Message 3", "")
 	if err != nil {
 		t.Fatalf("Failed to save message for user2 session-3: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestGetSessionOwner(t *testing.T) {
 
 	// Create a session
 	sessionID := "test-session-1"
-	err = store.SaveChatMessage(ctx, userID, sessionID, "user", "Hello!")
+	err = store.SaveChatMessage(ctx, userID, sessionID, "user", "Hello!", "")
 	if err != nil {
 		t.Fatalf("Failed to save chat message: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestGetSessionMessagesOwnershipVerification(t *testing.T) {
 
 	// Create a session for user1
 	sessionID := "user1-session"
-	err = store.SaveChatMessage(ctx, user1ID, sessionID, "user", "User1's message")
+	err = store.SaveChatMessage(ctx, user1ID, sessionID, "user", "User1's message", "")
 	if err != nil {
 		t.Fatalf("Failed to save message for user1: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestSaveChatMessageUpdatesSessionMetadata(t *testing.T) {
 
 	// Save first message
 	sessionID := "test-session-1"
-	err = store.SaveChatMessage(ctx, userID, sessionID, "user", "First message")
+	err = store.SaveChatMessage(ctx, userID, sessionID, "user", "First message", "")
 	if err != nil {
 		t.Fatalf("Failed to save first message: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestSaveChatMessageUpdatesSessionMetadata(t *testing.T) {
 	}
 
 	// Save second message to same session
-	err = store.SaveChatMessage(ctx, userID, sessionID, "assistant", "Second message")
+	err = store.SaveChatMessage(ctx, userID, sessionID, "assistant", "Second message", "")
 	if err != nil {
 		t.Fatalf("Failed to save second message: %v", err)
 	}

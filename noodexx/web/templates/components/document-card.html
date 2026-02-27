@@ -1,0 +1,71 @@
+{{define "document-card"}}
+{{- /* Document Card Component Template
+    
+    Props:
+    - Source: string (required) - document source/filename
+    - Summary: string - document summary/preview
+    - ChunkCount: int - number of chunks
+    - Tags: []string - document tags
+*/ -}}
+
+{{- $preview := .Summary -}}
+{{- if eq $preview "" -}}
+    {{- $preview = "No summary available" -}}
+{{- end -}}
+{{- if gt (len $preview) 150 -}}
+    {{- $preview = printf "%s..." (slice $preview 0 150) -}}
+{{- end -}}
+
+<div class="bg-white dark:bg-surface-800 rounded-lg shadow-md border border-surface-200 dark:border-surface-700 p-6 hover:border-primary-500 dark:hover:border-primary-400 transition-all cursor-pointer group" data-source="{{.Source}}">
+    <!-- Document Header -->
+    <div class="flex justify-between items-start gap-2 mb-3">
+        <h3 class="text-base font-semibold text-surface-900 dark:text-surface-100 break-words flex-1">
+            {{.Source}}
+        </h3>
+        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <!-- Add Tag Button - Increased padding for 44x44px touch target -->
+            <button type="button" 
+                    class="inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed p-3 text-sm rounded-md bg-transparent text-surface-700 hover:bg-surface-100 active:bg-surface-200 focus:ring-surface-500 dark:text-surface-300 dark:hover:bg-surface-800 dark:active:bg-surface-700 min-w-[44px] min-h-[44px]"
+                    onclick="addTag('{{.Source}}')"
+                    aria-label="Add tag">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/>
+                    <path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/>
+                </svg>
+            </button>
+            <!-- Delete Button - Increased padding for 44x44px touch target -->
+            <button type="button" 
+                    class="inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed p-3 text-sm rounded-md bg-transparent text-surface-700 hover:bg-surface-100 active:bg-surface-200 focus:ring-surface-500 dark:text-surface-300 dark:hover:bg-surface-800 dark:active:bg-surface-700 min-w-[44px] min-h-[44px]"
+                    onclick="deleteDocument('{{.Source}}')"
+                    aria-label="Delete document">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Document Preview -->
+    <p class="text-sm text-surface-600 dark:text-surface-400 line-clamp-3 mb-4">
+        {{$preview}}
+    </p>
+    
+    <!-- Document Meta -->
+    <div class="flex justify-between items-center text-xs text-surface-500 dark:text-surface-500 pt-3 border-t border-surface-200 dark:border-surface-700">
+        <div class="flex items-center gap-1">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
+            </svg>
+            <span>{{.ChunkCount}} chunks</span>
+        </div>
+        <div class="flex flex-wrap gap-1">
+            {{range .Tags}}
+            <span class="inline-block px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded text-xs font-medium">{{.}}</span>
+            {{end}}
+        </div>
+    </div>
+    
+    <!-- Chunks Container (for expansion) -->
+    <div class="document-chunks"></div>
+</div>
+{{end}}

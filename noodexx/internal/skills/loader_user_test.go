@@ -83,6 +83,7 @@ func TestLoadForUser_WithStore(t *testing.T) {
 				UserID:    1,
 				Name:      "skill1",
 				Path:      "skill1",
+				Enabled:   true, // Enable the skill
 				CreatedAt: time.Now(),
 			},
 			{
@@ -90,6 +91,7 @@ func TestLoadForUser_WithStore(t *testing.T) {
 				UserID:    2,
 				Name:      "skill2",
 				Path:      "skill2",
+				Enabled:   true, // Enable the skill
 				CreatedAt: time.Now(),
 			},
 		},

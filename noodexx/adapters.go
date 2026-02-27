@@ -493,6 +493,7 @@ func (asa *apiStoreAdapter) GetUserByUsername(ctx context.Context, username stri
 		MustChangePassword: user.MustChangePassword,
 		CreatedAt:          user.CreatedAt,
 		LastLogin:          user.LastLogin,
+		DarkMode:           user.DarkMode,
 	}, nil
 }
 
@@ -514,6 +515,7 @@ func (asa *apiStoreAdapter) GetUserByID(ctx context.Context, userID int64) (*api
 		MustChangePassword: user.MustChangePassword,
 		CreatedAt:          user.CreatedAt,
 		LastLogin:          user.LastLogin,
+		DarkMode:           user.DarkMode,
 	}, nil
 }
 
@@ -523,6 +525,10 @@ func (asa *apiStoreAdapter) CreateUser(ctx context.Context, username, password, 
 
 func (asa *apiStoreAdapter) UpdatePassword(ctx context.Context, userID int64, newPassword string) error {
 	return asa.store.UpdatePassword(ctx, userID, newPassword)
+}
+
+func (asa *apiStoreAdapter) UpdateUserDarkMode(ctx context.Context, userID int64, darkMode bool) error {
+	return asa.store.UpdateUserDarkMode(ctx, userID, darkMode)
 }
 
 func (asa *apiStoreAdapter) ListUsers(ctx context.Context) ([]api.User, error) {
@@ -546,6 +552,7 @@ func (asa *apiStoreAdapter) ListUsers(ctx context.Context) ([]api.User, error) {
 			MustChangePassword: su.MustChangePassword,
 			CreatedAt:          su.CreatedAt,
 			LastLogin:          su.LastLogin,
+			DarkMode:           su.DarkMode,
 		}
 	}
 	return apiUsers, nil

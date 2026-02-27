@@ -83,6 +83,10 @@ func (m *mockStoreForAuth) UpdatePassword(ctx context.Context, userID int64, new
 	return nil
 }
 
+func (m *mockStoreForAuth) UpdateUserDarkMode(ctx context.Context, userID int64, darkMode bool) error {
+	return nil
+}
+
 // Stub methods for Store interface (not used in auth tests)
 func (m *mockStoreForAuth) SaveChunk(ctx context.Context, source, text string, embedding []float32, tags []string, summary string) error {
 	return nil

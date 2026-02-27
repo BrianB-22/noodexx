@@ -343,7 +343,7 @@ func TestSave(t *testing.T) {
 			OllamaEndpoint:   "http://localhost:11434",
 			OllamaEmbedModel: "test-model",
 		},
-		Privacy:    PrivacyConfig{DefaultToLocal: true},
+		Privacy: PrivacyConfig{DefaultToLocal: true},
 		Folders: []string{"/test/path"},
 		Logging: LoggingConfig{Level: "info"},
 		Guardrails: GuardrailsConfig{
@@ -472,7 +472,7 @@ func TestValidate_LogLevel(t *testing.T) {
 					Type:           "ollama",
 					OllamaEndpoint: "http://localhost:11434",
 				},
-				Privacy:    PrivacyConfig{DefaultToLocal: true},
+				Privacy: PrivacyConfig{DefaultToLocal: true},
 				Logging: LoggingConfig{
 					Level:      tt.level,
 					File:       "debug.log",
@@ -919,8 +919,7 @@ func TestPrivacyConfig_ValidateRAGPolicy(t *testing.T) {
 				DefaultToLocal: true,
 				CloudRAGPolicy: "",
 			},
-			expectError: true,
-			errorMsg:    "invalid RAG policy:  (must be 'no_rag' or 'allow_rag')",
+			expectError: false, // Empty is valid, will be defaulted
 		},
 		{
 			name: "Case-sensitive validation",

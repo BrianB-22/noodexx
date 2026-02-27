@@ -1,0 +1,171 @@
+{{define "modal"}}
+{{- /* Modal Component Template
+    
+    Props:
+    - ID: string (required) - unique identifier for the modal
+    - Title: string - modal title
+    - Content: string/HTML - modal body content
+    - Actions: string/HTML - modal footer actions (buttons)
+    - Size: "sm", "md", "lg", "xl" (defaults to "md")
+    - Class: string - additional CSS classes for modal content
+    
+    Usage:
+    - Trigger modal: @click="$dispatch('open-modal-{{.ID}}')"
+    - Close modal: @click="open = false" or press Escape key
+    - Click backdrop to close
+    
+    Example:
+    {{template "modal" dict 
+        "ID" "confirm-delete"
+        "Title" "Confirm Deletion"
+        "Content" "<p>Are you sure you want to delete this item?</p>"
+        "Actions" "<button @click=\"open = false\" class=\"btn btn-secondary\">Cancel</button><button class=\"btn btn-danger\">Delete</button>"
+    }}
+*/ -}}
+
+{{- /* Validate and default size */ -}}
+{{- $size := .Size | default "md" -}}
+{{- if not (or (eq $size "sm") (eq $size "md") (eq $size "lg") (eq $size "xl")) -}}
+    {{- $size = "md" -}}
+{{- end -}}
+
+{{- /* Size-specific max-width classes */ -}}
+{{- $sizeClasses := "" -}}
+{{- if eq $size "sm" -}}
+    {{- $sizeClasses = "max-w-sm" -}}
+{{- else if eq $size "md" -}}
+    {{- $sizeClasses = "max-w-md" -}}
+{{- else if eq $size "lg" -}}
+    {{- $sizeClasses = "max-w-lg" -}}
+{{- else if eq $size "xl" -}}
+    {{- $sizeClasses = "max-w-xl" -}}
+{{- end -}}
+
+{{- /* Build modal content classes */ -}}
+{{- $contentClasses := printf "relative bg-white dark:bg-surface-800 rounded-lg shadow-xl %s w-full p-6" $sizeClasses -}}
+{{- if .Class -}}
+    {{- $contentClasses = printf "%s %s" $contentClasses .Class -}}
+{{- end -}}
+
+<div 
+    x-data="{ 
+        open: false,
+        focusableElements: [],
+        firstFocusable: null,
+        lastFocusable: null,
+        init() {
+            this.$watch('open', value => {
+                if (value) {
+                    this.$nextTick(() => {
+                        this.setupFocusTrap();
+                        this.focusFirst();
+                    });
+                }
+            });
+        },
+        setupFocusTrap() {
+            const modal = this.$el.querySelector('[role=dialog]');
+            if (modal) {
+                this.focusableElements = Array.from(modal.querySelectorAll(
+                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex=\'-1\'])'
+                ));
+                this.firstFocusable = this.focusableElements[0];
+                this.lastFocusable = this.focusableElements[this.focusableElements.length - 1];
+            }
+        },
+        focusFirst() {
+            if (this.firstFocusable) {
+                this.firstFocusable.focus();
+            } else {
+                const modal = this.$el.querySelector('[role=dialog]');
+                if (modal) {
+                    modal.setAttribute('tabindex', '-1');
+                    modal.focus();
+                }
+            }
+        },
+        handleKeydown(event) {
+            if (event.key === 'Tab') {
+                if (this.focusableElements.length === 0) return;
+                
+                if (event.shiftKey) {
+                    if (document.activeElement === this.firstFocusable) {
+                        event.preventDefault();
+                        this.lastFocusable.focus();
+                    }
+                } else {
+                    if (document.activeElement === this.lastFocusable) {
+                        event.preventDefault();
+                        this.firstFocusable.focus();
+                    }
+                }
+            }
+        }
+    }" 
+    x-init="$watch('open', value => { if (value) { $nextTick(() => { setupFocusTrap(); focusFirst(); }); } }); window.addEventListener('open-modal-{{.ID}}', () => { open = true; })"
+    @keydown.escape.window="open = false"
+>
+    <!-- Modal overlay -->
+    <div 
+        x-show="open" 
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-50 overflow-y-auto"
+        style="display: none;"
+        aria-modal="true"
+        role="dialog"
+        {{if .Title}}aria-labelledby="modal-title-{{.ID}}"{{end}}
+        @keydown="handleKeydown($event)"
+    >
+        <!-- Backdrop -->
+        <div 
+            class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+            @click="open = false"
+            aria-hidden="true"
+        ></div>
+        
+        <!-- Modal content container -->
+        <div class="relative min-h-screen flex items-center justify-center p-4">
+            <div 
+                x-show="open"
+                x-transition:enter="transition ease-out duration-200 transform"
+                x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave="transition ease-in duration-150 transform"
+                x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                class="{{$contentClasses}}"
+                @click.stop
+            >
+                {{if .Title}}
+                <!-- Modal header -->
+                <div class="mb-4">
+                    <h2 
+                        id="modal-title-{{.ID}}"
+                        class="text-xl font-semibold text-surface-900 dark:text-surface-100"
+                    >
+                        {{.Title}}
+                    </h2>
+                </div>
+                {{end}}
+                
+                <!-- Modal body -->
+                <div class="text-surface-700 dark:text-surface-300">
+                    {{.Content | html}}
+                </div>
+                
+                {{if .Actions}}
+                <!-- Modal footer -->
+                <div class="mt-6 flex justify-end gap-3">
+                    {{.Actions | html}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en" x-data="{ darkMode: false }" :class="{ 'dark': darkMode }">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toast System Test</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        success: {
+                            500: '#10b981'
+                        },
+                        error: {
+                            500: '#ef4444'
+                        },
+                        info: {
+                            500: '#3b82f6'
+                        },
+                        warning: {
+                            500: '#f59e0b'
+                        },
+                        surface: {
+                            100: '#f5f5f5',
+                            400: '#a3a3a3',
+                            500: '#737373',
+                            600: '#525252',
+                            700: '#404040',
+                            800: '#262626',
+                            900: '#171717'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body class="bg-surface-100 dark:bg-surface-900 p-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-surface-900 dark:text-surface-100">Toast Notification System Test</h1>
+        
+        <div class="bg-white dark:bg-surface-800 rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-surface-900 dark:text-surface-100">JavaScript Triggers</h2>
+            <p class="text-surface-600 dark:text-surface-400 mb-4">Test toast notifications triggered from JavaScript:</p>
+            
+            <div class="flex flex-wrap gap-3">
+                <button 
+                    onclick="window.dispatchEvent(new CustomEvent('toast', { detail: { variant: 'success', message: 'Operation completed successfully!' } }))"
+                    class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                >
+                    Success Toast
+                </button>
+                
+                <button 
+                    onclick="window.dispatchEvent(new CustomEvent('toast', { detail: { variant: 'error', message: 'An error occurred!' } }))"
+                    class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                    Error Toast
+                </button>
+                
+                <button 
+                    onclick="window.dispatchEvent(new CustomEvent('toast', { detail: { variant: 'info', message: 'Here is some information.' } }))"
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                    Info Toast
+                </button>
+                
+                <button 
+                    onclick="window.dispatchEvent(new CustomEvent('toast', { detail: { variant: 'warning', message: 'Warning: Please be careful!' } }))"
+                    class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                >
+                    Warning Toast
+                </button>
+                
+                <button 
+                    onclick="for(let i=0; i<6; i++) { setTimeout(() => window.dispatchEvent(new CustomEvent('toast', { detail: { variant: 'info', message: 'Toast ' + (i+1) } })), i*100); }"
+                    class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                >
+                    Test Queue (6 toasts)
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white dark:bg-surface-800 rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-surface-900 dark:text-surface-100">HTMX Triggers</h2>
+            <p class="text-surface-600 dark:text-surface-400 mb-4">Test toast notifications triggered from HTMX responses:</p>
+            
+            <div class="flex flex-wrap gap-3">
+                <button 
+                    hx-post="/api/test/toast-success"
+                    hx-swap="none"
+                    class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                >
+                    HTMX Success
+                </button>
+                
+                <button 
+                    hx-post="/api/test/toast-error"
+                    hx-swap="none"
+                    class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                    HTMX Error
+                </button>
+            </div>
+            
+            <p class="text-sm text-surface-500 dark:text-surface-400 mt-4">
+                Note: HTMX endpoints need to be implemented in the backend with HX-Trigger headers.
+            </p>
+        </div>
+        
+        <div class="bg-white dark:bg-surface-800 rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4 text-surface-900 dark:text-surface-100">Dark Mode</h2>
+            <button 
+                @click="darkMode = !darkMode"
+                class="px-4 py-2 bg-surface-700 text-white rounded-lg hover:bg-surface-600 transition-colors"
+            >
+                Toggle Dark Mode
+            </button>
+        </div>
+    </div>
+    
+    <!-- Toast Container (inline for testing) -->
+    <div 
+        x-data="toastManager()" 
+        @toast.window="addToast($event.detail)"
+        class="fixed top-4 right-4 z-50 space-y-3 pointer-events-none"
+        style="max-width: 24rem;"
+    >
+        <template x-for="toast in toasts" :key="toast.id">
+            <div 
+                x-show="toast.visible"
+                x-transition:enter="transition ease-out duration-200 transform"
+                x-transition:enter-start="translate-x-full opacity-0"
+                x-transition:enter-end="translate-x-0 opacity-100"
+                x-transition:leave="transition ease-in duration-150 transform"
+                x-transition:leave-start="translate-x-0 opacity-100"
+                x-transition:leave-end="translate-x-full opacity-0"
+                class="bg-white dark:bg-surface-800 rounded-lg shadow-lg border-l-4 p-4 pointer-events-auto"
+                :class="{
+                    'border-success-500': toast.variant === 'success',
+                    'border-error-500': toast.variant === 'error',
+                    'border-info-500': toast.variant === 'info',
+                    'border-warning-500': toast.variant === 'warning'
+                }"
+                role="alert"
+                aria-live="polite"
+            >
+                <div class="flex items-start gap-3">
+                    <!-- Icon -->
+                    <div class="flex-shrink-0 mt-0.5">
+                        <!-- Success icon -->
+                        <svg 
+                            x-show="toast.variant === 'success'" 
+                            class="w-5 h-5 text-success-500" 
+                            fill="currentColor" 
+                            viewBox="0 0 20 20"
+                        >
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        
+                        <!-- Error icon -->
+                        <svg 
+                            x-show="toast.variant === 'error'" 
+                            class="w-5 h-5 text-error-500" 
+                            fill="currentColor" 
+                            viewBox="0 0 20 20"
+                        >
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                        
+                        <!-- Info icon -->
+                        <svg 
+                            x-show="toast.variant === 'info'" 
+                            class="w-5 h-5 text-info-500" 
+                            fill="currentColor" 
+                            viewBox="0 0 20 20"
+                        >
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                        </svg>
+                        
+                        <!-- Warning icon -->
+                        <svg 
+                            x-show="toast.variant === 'warning'" 
+                            class="w-5 h-5 text-warning-500" 
+                            fill="currentColor" 
+                            viewBox="0 0 20 20"
+                        >
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    
+                    <!-- Message -->
+                    <div class="flex-1 text-sm text-surface-900 dark:text-surface-100" x-text="toast.message"></div>
+                    
+                    <!-- Close button -->
+                    <button 
+                        @click="removeToast(toast.id)" 
+                        class="flex-shrink-0 text-surface-400 hover:text-surface-600 dark:text-surface-500 dark:hover:text-surface-300 transition-colors focus:outline-none focus:ring-2 focus:ring-surface-500 rounded"
+                        aria-label="Close notification"
+                    >
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+    
+    <!-- HTMX event listener for toast notifications -->
+    <script>
+        // HTMX event listener for toast notifications
+        document.body.addEventListener('htmx:afterRequest', function(event) {
+            const triggerHeader = event.detail.xhr.getResponseHeader('HX-Trigger');
+            if (triggerHeader) {
+                try {
+                    const triggers = JSON.parse(triggerHeader);
+                    if (triggers.toast) {
+                        window.dispatchEvent(new CustomEvent('toast', { 
+                            detail: triggers.toast 
+                        }));
+                    }
+                } catch (e) {
+                    console.error('Failed to parse HX-Trigger header:', e);
+                }
+            }
+        });
+        
+        // Toast Manager Alpine.js Component
+        function toastManager() {
+            return {
+                toasts: [],
+                nextId: 1,
+                
+                addToast(toastData) {
+                    const validVariants = ['success', 'error', 'info', 'warning'];
+                    const variant = validVariants.includes(toastData.variant) ? toastData.variant : 'info';
+                    
+                    const id = this.nextId++;
+                    const newToast = {
+                        id: id,
+                        variant: variant,
+                        message: toastData.message || 'Notification',
+                        visible: true
+                    };
+                    
+                    this.toasts.push(newToast);
+                    
+                    if (this.toasts.length > 4) {
+                        const oldestToast = this.toasts[0];
+                        this.removeToast(oldestToast.id);
+                    }
+                    
+                    const duration = toastData.duration || 5000;
+                    setTimeout(() => {
+                        this.removeToast(id);
+                    }, duration);
+                },
+                
+                removeToast(toastId) {
+                    const toast = this.toasts.find(t => t.id === toastId);
+                    if (!toast) {
+                        return;
+                    }
+                    
+                    toast.visible = false;
+                    
+                    setTimeout(() => {
+                        this.toasts = this.toasts.filter(t => t.id !== toastId);
+                    }, 200);
+                }
+            };
+        }
+    </script>
+</body>
+</html>

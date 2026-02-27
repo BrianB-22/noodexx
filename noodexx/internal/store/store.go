@@ -827,7 +827,7 @@ func (s *Store) CreateUser(ctx context.Context, username, password, email string
 // GetUserByUsername retrieves a user by username
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	query := `
-		SELECT id, username, password_hash, email, is_admin, must_change_password, created_at, last_login
+		SELECT id, username, password_hash, email, is_admin, must_change_password, created_at, last_login, COALESCE(dark_mode, 0) as dark_mode
 		FROM users
 		WHERE username = ?
 	`
@@ -844,6 +844,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 		&user.MustChangePassword,
 		&user.CreatedAt,
 		&lastLogin,
+		&user.DarkMode,
 	)
 
 	if err == sql.ErrNoRows {
@@ -863,7 +864,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 // GetUserByID retrieves a user by ID
 func (s *Store) GetUserByID(ctx context.Context, userID int64) (*User, error) {
 	query := `
-		SELECT id, username, password_hash, email, is_admin, must_change_password, created_at, last_login
+		SELECT id, username, password_hash, email, is_admin, must_change_password, created_at, last_login, COALESCE(dark_mode, 0) as dark_mode
 		FROM users
 		WHERE id = ?
 	`
@@ -880,6 +881,7 @@ func (s *Store) GetUserByID(ctx context.Context, userID int64) (*User, error) {
 		&user.MustChangePassword,
 		&user.CreatedAt,
 		&lastLogin,
+		&user.DarkMode,
 	)
 
 	if err == sql.ErrNoRows {
@@ -947,6 +949,42 @@ func (s *Store) UpdateLastLogin(ctx context.Context, userID int64) error {
 	}
 
 	return nil
+}
+
+// UpdateUserDarkMode updates a user's dark mode preference
+func (s *Store) UpdateUserDarkMode(ctx context.Context, userID int64, darkMode bool) error {
+	query := `
+		UPDATE users
+		SET dark_mode = ?
+		WHERE id = ?
+	`
+
+	_, err := s.db.ExecContext(ctx, query, darkMode, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update dark mode: %w", err)
+	}
+
+	return nil
+}
+
+// GetUserDarkMode retrieves a user's dark mode preference
+func (s *Store) GetUserDarkMode(ctx context.Context, userID int64) (bool, error) {
+	query := `
+		SELECT COALESCE(dark_mode, 0)
+		FROM users
+		WHERE id = ?
+	`
+
+	var darkMode bool
+	err := s.db.QueryRowContext(ctx, query, userID).Scan(&darkMode)
+	if err == sql.ErrNoRows {
+		return false, fmt.Errorf("user not found: %d", userID)
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to get dark mode: %w", err)
+	}
+
+	return darkMode, nil
 }
 
 // ListUsers returns all users in the system

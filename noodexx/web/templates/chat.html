@@ -1,87 +1,114 @@
 {{define "chat-content"}}
 <div class="chat-container">
-    <!-- Session Sidebar -->
-    <aside class="session-sidebar">
-        <div class="session-header">
-            <!-- Privacy Toggle -->
-            <div class="privacy-toggle" data-cloud-available="{{.CloudProviderAvailable}}">
-                <label class="toggle-option">
-                    <input type="radio" name="provider-mode" value="local" {{if .PrivacyMode}}checked{{end}} onchange="switchProvider('local')">
-                    <span class="toggle-label">
-                        <span class="toggle-icon">🔒</span>
-                        <span class="toggle-text">Local AI</span>
-                    </span>
-                </label>
-                <label class="toggle-option" id="cloudToggleOption">
-                    <input type="radio" name="provider-mode" value="cloud" {{if not .PrivacyMode}}checked{{end}} onchange="switchProvider('cloud')" id="cloudProviderRadio">
-                    <span class="toggle-label">
-                        <span class="toggle-icon">☁️</span>
-                        <span class="toggle-text">Cloud AI</span>
-                    </span>
-                </label>
+    <!-- Session Sidebar - Using Card Component -->
+    <aside class="session-sidebar-wrapper">
+        <div class="bg-white dark:bg-surface-800 rounded-lg shadow-md border border-surface-200 dark:border-surface-700 p-6 h-full flex flex-col">
+            <div class="session-header">
+                <!-- Privacy Toggle -->
+                <fieldset class="privacy-toggle" aria-label="AI Provider Selection" data-cloud-available="{{.CloudProviderAvailable}}">
+                    <legend class="visually-hidden">Choose AI Provider</legend>
+                    <label class="toggle-option">
+                        <input type="radio" name="provider-mode" value="local" {{if .PrivacyMode}}checked{{end}} onchange="switchProvider('local')" aria-label="Use Local AI (Private)">
+                        <span class="toggle-label" aria-hidden="true">
+                            <span class="toggle-icon">🔒</span>
+                            <span class="toggle-text">Local AI</span>
+                        </span>
+                    </label>
+                    <label class="toggle-option" id="cloudToggleOption">
+                        <input type="radio" name="provider-mode" value="cloud" {{if not .PrivacyMode}}checked{{end}} onchange="switchProvider('cloud')" id="cloudProviderRadio" aria-label="Use Cloud AI">
+                        <span class="toggle-label" aria-hidden="true">
+                            <span class="toggle-icon">☁️</span>
+                            <span class="toggle-text">Cloud AI</span>
+                        </span>
+                    </label>
+                </fieldset>
+                
+                <!-- New Chat Button - Using Button Component -->
+                {{template "button" dict 
+                    "Variant" "primary"
+                    "Size" "md"
+                    "ID" "newChatBtn"
+                    "OnClick" "newChat()"
+                    "Class" "w-full"
+                    "AriaLabel" "Start new chat"
+                    "Content" "<svg width=\"16\" height=\"16\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"mr-2\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z\"/></svg>New Chat"
+                }}
             </div>
             
-            <button class="btn-primary" id="newChatBtn" onclick="newChat()">
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/>
-                </svg>
-                New Chat
-            </button>
-        </div>
-        
-        <div class="session-list" 
-             hx-get="/api/sessions" 
-             hx-trigger="load, refresh from:body"
-             hx-swap="innerHTML">
-            <!-- Sessions will be loaded here via HTMX -->
-            <div class="session-loading">Loading sessions...</div>
+            <nav class="session-list" 
+                 hx-get="/api/sessions" 
+                 hx-trigger="load, refresh from:body"
+                 hx-swap="innerHTML"
+                 hx-indicator="#session-loading-indicator"
+                 aria-label="Chat sessions">
+                <!-- Sessions will be loaded here via HTMX -->
+                <div id="session-loading-indicator" class="htmx-indicator">
+                    {{template "loading-state" dict "Type" "skeleton" "Rows" 3}}
+                </div>
+            </nav>
         </div>
     </aside>
 
-    <!-- Chat Area -->
-    <div class="chat-main">
-        <div class="messages-container" id="messagesContainer">
-            <div class="welcome-message" id="welcomeMessage">
-                <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor" style="opacity: 0.3;">
-                    <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"/>
-                </svg>
-                <h2>Start a conversation</h2>
-                <p>Ask me anything about your documents or general questions.</p>
-            </div>
-            <!-- Messages will be added here dynamically -->
-        </div>
-
-        <!-- Chat Input Form -->
-        <div class="chat-input-container">
-            <!-- Provider Status Warning (shown only in cloud mode) -->
-            <div class="provider-warning" id="providerWarning" style="display: none;">
-                <div class="warning-content">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="warning-icon">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
+    <!-- Chat Area - Using Card Component -->
+    <div class="chat-main-wrapper">
+        <div class="bg-white dark:bg-surface-800 rounded-lg shadow-md border border-surface-200 dark:border-surface-700 p-6 h-full flex flex-col">
+            <div class="messages-container" id="messagesContainer" role="log" aria-live="polite" aria-label="Chat messages">
+                <div class="welcome-message" id="welcomeMessage">
+                    <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor" style="opacity: 0.3;" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"/>
                     </svg>
-                    <div class="warning-text">
-                        <span class="warning-title">Using Cloud AI</span>
-                        <span class="warning-subtitle" id="ragWarning"></span>
+                    <h2>Start a conversation</h2>
+                    <p>Ask me anything about your documents or general questions.</p>
+                </div>
+                <!-- Messages will be added here dynamically -->
+            </div>
+
+            <!-- Chat Input Form -->
+            <div class="chat-input-container">
+                <!-- Provider Status Warning (shown only in cloud mode) -->
+                <div class="provider-warning" id="providerWarning" style="display: none;" role="alert" aria-live="polite">
+                    <div class="warning-content">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="warning-icon" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
+                        </svg>
+                        <div class="warning-text">
+                            <span class="warning-title">Using Cloud AI</span>
+                            <span class="warning-subtitle" id="ragWarning"></span>
+                        </div>
                     </div>
                 </div>
+                
+                <form id="chatForm" onsubmit="sendMessage(event)" hx-indicator="#message-loading-indicator" aria-label="Chat message form">
+                    <div class="input-wrapper">
+                        <label for="messageInput" class="visually-hidden">Message input</label>
+                        <textarea 
+                            id="messageInput" 
+                            name="message"
+                            class="chat-textarea" 
+                            placeholder="Type your message... (Shift+Enter for new line, Enter to send)"
+                            rows="1"
+                            autofocus
+                            aria-label="Type your message"
+                            aria-describedby="messageInputHelp"
+                        ></textarea>
+                        <span id="messageInputHelp" class="visually-hidden">Press Enter to send, Shift+Enter for new line</span>
+                        <!-- Send Button - Using Button Component -->
+                        {{template "button" dict 
+                            "Type" "submit"
+                            "Variant" "primary"
+                            "Size" "md"
+                            "ID" "sendBtn"
+                            "AriaLabel" "Send message"
+                            "Class" "btn-send-custom"
+                            "Content" "<svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z\"/></svg>"
+                        }}
+                    </div>
+                    <!-- Loading indicator for message sending -->
+                    <div id="message-loading-indicator" class="htmx-indicator mt-2" role="status" aria-live="polite" aria-label="Sending message">
+                        {{template "loading-state" dict "Type" "spinner"}}
+                    </div>
+                </form>
             </div>
-            
-            <form id="chatForm" onsubmit="sendMessage(event)">
-                <div class="input-wrapper">
-                    <textarea 
-                        id="messageInput" 
-                        class="chat-textarea" 
-                        placeholder="Type your message... (Shift+Enter for new line, Enter to send)"
-                        rows="1"
-                        autofocus
-                    ></textarea>
-                    <button type="submit" class="btn-send" id="sendBtn" aria-label="Send message">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
-                        </svg>
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
@@ -272,6 +299,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check provider configuration status on load
     checkProviderStatus();
+    
+    // HTMX error handling - display error toast on request failure
+    document.body.addEventListener('htmx:responseError', function(event) {
+        console.error('HTMX request failed:', event.detail);
+        
+        // Determine error message based on response status
+        let errorMessage = 'Request failed. Please try again.';
+        
+        if (event.detail.xhr) {
+            const status = event.detail.xhr.status;
+            if (status === 0) {
+                errorMessage = 'Network error. Please check your connection.';
+            } else if (status === 404) {
+                errorMessage = 'Resource not found.';
+            } else if (status === 500) {
+                errorMessage = 'Server error. Please try again later.';
+            } else if (status >= 400 && status < 500) {
+                errorMessage = 'Request error. Please check your input.';
+            }
+        }
+        
+        // Display error toast
+        window.dispatchEvent(new CustomEvent('toast', {
+            detail: {
+                variant: 'error',
+                message: errorMessage,
+                duration: 5000
+            }
+        }));
+    });
 });
 
 // Check which providers are configured and disable unavailable options
@@ -330,7 +387,7 @@ function newChat() {
     }
     messagesContainer.innerHTML = `
         <div class="welcome-message">
-            <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor" style="opacity: 0.3;">
+            <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor" style="opacity: 0.3;" aria-hidden="true">
                 <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"/>
             </svg>
             <h2>Start a conversation</h2>
@@ -513,12 +570,15 @@ function addMessage(role, content, messageId, providerMode) {
     const messagesContainer = document.getElementById('messagesContainer');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message message-' + role;
+    messageDiv.setAttribute('role', 'article');
+    messageDiv.setAttribute('aria-label', role === 'user' ? 'Your message' : 'Assistant message');
     if (messageId) {
         messageDiv.id = messageId;
     }
     
     const avatar = document.createElement('div');
     avatar.className = 'message-avatar';
+    avatar.setAttribute('aria-hidden', 'true');
     
     if (role === 'user') {
         avatar.innerHTML = `
@@ -544,14 +604,14 @@ function addMessage(role, content, messageId, providerMode) {
     
     if (role === 'assistant') {
         // For assistant messages, render as HTML (server-side markdown rendering)
-        contentDiv.innerHTML = content || '<span class="typing-indicator">●●●</span>';
+        contentDiv.innerHTML = content || '<span class="typing-indicator" aria-label="Assistant is typing">●●●</span>';
         
         // Add copy button for assistant messages
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'message-actions';
         actionsDiv.innerHTML = `
-            <button class="btn-icon" onclick="copyMessage(this)" title="Copy message">
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            <button class="btn-icon" onclick="copyMessage(this)" title="Copy message" aria-label="Copy message to clipboard">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
                     <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
                 </svg>
@@ -639,6 +699,19 @@ function scrollToBottom() {
 </script>
 
 <style>
+/* Visually Hidden - for screen readers only */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
 /* Chat Container Layout */
 .chat-container {
     display: flex;
@@ -646,15 +719,16 @@ function scrollToBottom() {
     gap: 1rem;
 }
 
-/* Session Sidebar */
-.session-sidebar {
+/* Session Sidebar Wrapper */
+.session-sidebar-wrapper {
     width: 260px;
-    background: var(--surface);
-    border-radius: 8px;
-    padding: 1rem;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+}
+
+.session-sidebar-wrapper > div {
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 
@@ -663,6 +737,7 @@ function scrollToBottom() {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 /* Privacy Toggle */
@@ -673,6 +748,8 @@ function scrollToBottom() {
     padding: 4px;
     gap: 4px;
     border: 2px solid var(--border);
+    margin: 0;
+    min-width: 0;
 }
 
 .toggle-option {
@@ -814,13 +891,16 @@ function scrollToBottom() {
     color: var(--text-secondary);
 }
 
-/* Chat Main Area */
-.chat-main {
+/* Chat Main Area Wrapper */
+.chat-main-wrapper {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: var(--surface);
-    border-radius: 8px;
+}
+
+.chat-main-wrapper > div {
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 
@@ -970,7 +1050,7 @@ function scrollToBottom() {
     flex-shrink: 0;
     padding: 1rem;
     border-top: 1px solid var(--border);
-    background: var(--surface);
+    background: transparent;
 }
 
 /* Provider Warning */
@@ -1118,29 +1198,26 @@ function scrollToBottom() {
     cursor: not-allowed;
 }
 
-.btn-send {
+/* Button component customization for send button */
+.btn-send-custom {
     flex-shrink: 0;
-    width: 44px;
-    height: 44px;
-    border: none;
-    border-radius: 8px;
-    background: var(--primary);
-    color: white;
-    cursor: pointer;
+    width: 44px !important;
+    height: 44px !important;
+    padding: 0 !important;
+    min-width: 44px;
+}
+
+/* HTMX indicator */
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
 }
 
-.btn-send:hover:not(:disabled) {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
-}
-
-.btn-send:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+.htmx-request.htmx-indicator {
+    display: flex;
 }
 
 /* Error Message */
@@ -1156,7 +1233,7 @@ function scrollToBottom() {
         flex-direction: column;
     }
     
-    .session-sidebar {
+    .session-sidebar-wrapper {
         width: 100%;
         max-height: 200px;
     }

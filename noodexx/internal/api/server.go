@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"noodexx/internal/auth"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -28,6 +30,7 @@ type Server struct {
 	configPath      string // Path to config file for saving
 	providerManager ProviderManager
 	ragEnforcer     RAGEnforcer
+	uiStyle         interface{} // UIStyle configuration for theming
 }
 
 // Logger interface for structured logging
@@ -62,6 +65,7 @@ type Store interface {
 	GetUserByID(ctx context.Context, userID int64) (*User, error)
 	CreateUser(ctx context.Context, username, password, email string, isAdmin, mustChangePassword bool) (int64, error)
 	UpdatePassword(ctx context.Context, userID int64, newPassword string) error
+	UpdateUserDarkMode(ctx context.Context, userID int64, darkMode bool) error
 	ListUsers(ctx context.Context) ([]User, error)
 	DeleteUser(ctx context.Context, userID int64) error
 	// Skills management methods
@@ -88,6 +92,7 @@ type User struct {
 	MustChangePassword bool
 	CreatedAt          time.Time
 	LastLogin          time.Time
+	DarkMode           bool
 }
 
 // LLMProvider interface for chat and embeddings
@@ -241,16 +246,65 @@ type ServerConfig struct {
 }
 
 // NewServer creates a server with dependencies and loads templates
-func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string, providerManager ProviderManager, ragEnforcer RAGEnforcer) (*Server, error) {
-	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, skillsLoader, skillsExecutor, logger, authProvider, configPath, "web/templates/*.html", providerManager, ragEnforcer)
+func NewServer(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string, providerManager ProviderManager, ragEnforcer RAGEnforcer, uiStyle interface{}) (*Server, error) {
+	return NewServerWithTemplatePath(store, provider, ingester, searcher, config, skillsLoader, skillsExecutor, logger, authProvider, configPath, "web/templates/*.html", providerManager, ragEnforcer, uiStyle)
 }
 
 // NewServerWithTemplatePath creates a server with a custom template path (useful for testing)
-func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string, templatePath string, providerManager ProviderManager, ragEnforcer RAGEnforcer) (*Server, error) {
-	// Load templates from the specified path
-	tmpl, err := template.ParseGlob(templatePath)
+func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Ingester, searcher Searcher, config *ServerConfig, skillsLoader SkillsLoader, skillsExecutor SkillsExecutor, logger Logger, authProvider AuthProvider, configPath string, templatePath string, providerManager ProviderManager, ragEnforcer RAGEnforcer, uiStyle interface{}) (*Server, error) {
+	// Create template with custom functions
+	funcMap := template.FuncMap{
+		"toJSON": func(v interface{}) (template.JS, error) {
+			jsonBytes, err := json.Marshal(v)
+			if err != nil {
+				return "", err
+			}
+			return template.JS(jsonBytes), nil
+		},
+		"dict": func(values ...interface{}) (map[string]interface{}, error) {
+			if len(values)%2 != 0 {
+				return nil, fmt.Errorf("dict requires an even number of arguments")
+			}
+			dict := make(map[string]interface{}, len(values)/2)
+			for i := 0; i < len(values); i += 2 {
+				key, ok := values[i].(string)
+				if !ok {
+					return nil, fmt.Errorf("dict keys must be strings")
+				}
+				dict[key] = values[i+1]
+			}
+			return dict, nil
+		},
+		"default": func(defaultValue interface{}, value interface{}) interface{} {
+			// Return defaultValue if value is nil, empty string, or zero value
+			if value == nil {
+				return defaultValue
+			}
+			if str, ok := value.(string); ok && str == "" {
+				return defaultValue
+			}
+			return value
+		},
+		"html": func(s string) template.HTML {
+			// Convert string to template.HTML to prevent escaping
+			return template.HTML(s)
+		},
+	}
+
+	// Load templates from the specified path with custom functions
+	tmpl, err := template.New("").Funcs(funcMap).ParseGlob(templatePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load templates: %w", err)
+	}
+
+	// Also load component templates if they exist
+	componentPath := "web/templates/components/*.html"
+	matches, _ := filepath.Glob(componentPath)
+	if len(matches) > 0 {
+		tmpl, err = tmpl.ParseGlob(componentPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load component templates: %w", err)
+		}
 	}
 
 	srv := &Server{
@@ -268,6 +322,7 @@ func NewServerWithTemplatePath(store Store, provider LLMProvider, ingester Inges
 		configPath:      configPath,
 		providerManager: providerManager,
 		ragEnforcer:     ragEnforcer,
+		uiStyle:         uiStyle,
 	}
 
 	// Start WebSocket hub
@@ -306,9 +361,10 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/skills", s.handleSkills)
 	mux.HandleFunc("/api/skills/run", s.handleRunSkill)
 	mux.HandleFunc("/api/watched-folders", s.handleWatchedFolders)
-	mux.HandleFunc("/api/settings", s.handleSaveSettings)        // Save settings endpoint
-	mux.HandleFunc("/api/privacy-mode", s.handlePrivacyMode)     // Toggle privacy mode
-	mux.HandleFunc("/api/privacy-toggle", s.handlePrivacyToggle) // Toggle between local and cloud AI
+	mux.HandleFunc("/api/settings", s.handleSaveSettings)              // Save settings endpoint
+	mux.HandleFunc("/api/privacy-mode", s.handlePrivacyMode)           // Toggle privacy mode
+	mux.HandleFunc("/api/privacy-toggle", s.handlePrivacyToggle)       // Toggle between local and cloud AI
+	mux.HandleFunc("/api/user/preferences", s.handleUpdatePreferences) // Update user preferences (dark mode, etc.)
 	// Authentication routes
 	mux.HandleFunc("/api/login", s.handleLogin)
 	mux.HandleFunc("/api/logout", s.handleLogout)

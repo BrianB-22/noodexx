@@ -41,6 +41,31 @@ type PrivacyConfig struct {
 	CloudRAGPolicy string `json:"cloud_rag_policy"` // "no_rag" or "allow_rag"
 }
 
+// UnmarshalJSON implements custom JSON unmarshaling for backward compatibility
+func (p *PrivacyConfig) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as new format first
+	type PrivacyConfigAlias PrivacyConfig
+	var newFormat PrivacyConfigAlias
+	if err := json.Unmarshal(data, &newFormat); err == nil {
+		*p = PrivacyConfig(newFormat)
+
+		// Check if we need to migrate from old "enabled" field
+		var oldFormat struct {
+			Enabled        *bool  `json:"enabled"`
+			DefaultToLocal *bool  `json:"default_to_local"`
+			CloudRAGPolicy string `json:"cloud_rag_policy"`
+		}
+		if err := json.Unmarshal(data, &oldFormat); err == nil {
+			// If "enabled" field exists but "default_to_local" doesn't, migrate
+			if oldFormat.Enabled != nil && oldFormat.DefaultToLocal == nil {
+				p.DefaultToLocal = *oldFormat.Enabled
+			}
+		}
+		return nil
+	}
+	return nil
+}
+
 // LoggingConfig controls logging behavior
 type LoggingConfig struct {
 	Level        string `json:"level"`         // "debug", "info", "warn", "error"
@@ -77,10 +102,21 @@ type AuthConfig struct {
 func Load(path string) (*Config, error) {
 	// Default configuration
 	cfg := &Config{
-		// Provider field is intentionally left empty (legacy field, only populated if present in config file)
-		// LocalProvider and CloudProvider are intentionally left empty here
-		// They will be populated either from the config file or via migration
-		LocalProvider: ProviderConfig{},
+		// Set legacy Provider field for backward compatibility (points to local provider by default)
+		Provider: ProviderConfig{
+			Type:             "ollama",
+			OllamaEndpoint:   "http://localhost:11434",
+			OllamaEmbedModel: "nomic-embed-text",
+			OllamaChatModel:  "llama3.2",
+		},
+		// LocalProvider defaults to Ollama
+		LocalProvider: ProviderConfig{
+			Type:             "ollama",
+			OllamaEndpoint:   "http://localhost:11434",
+			OllamaEmbedModel: "nomic-embed-text",
+			OllamaChatModel:  "llama3.2",
+		},
+		// CloudProvider is empty by default (user must configure)
 		CloudProvider: ProviderConfig{},
 		Privacy: PrivacyConfig{
 			DefaultToLocal: true,
@@ -121,8 +157,76 @@ func Load(path string) (*Config, error) {
 			return nil, fmt.Errorf("failed to read config file: %w", err)
 		}
 
-		if err := json.Unmarshal(data, cfg); err != nil {
+		// Unmarshal into a temporary struct to check what's in the file
+		var fileCfg Config
+		if err := json.Unmarshal(data, &fileCfg); err != nil {
 			return nil, fmt.Errorf("failed to parse config file: %w", err)
+		}
+
+		// Check if debug_enabled was explicitly set in the file
+		var rawConfig map[string]interface{}
+		json.Unmarshal(data, &rawConfig)
+		if logging, ok := rawConfig["logging"].(map[string]interface{}); ok {
+			if _, hasDebugEnabled := logging["debug_enabled"]; !hasDebugEnabled {
+				// debug_enabled not in file, default to true for backward compatibility
+				fileCfg.Logging.DebugEnabled = true
+			}
+		} else {
+			// No logging section, default to true
+			fileCfg.Logging.DebugEnabled = true
+		}
+
+		// Copy file config over defaults
+		cfg = &fileCfg
+
+		// Apply defaults for any missing fields
+		if cfg.Logging.Level == "" {
+			cfg.Logging.Level = "info"
+		}
+		if cfg.Logging.File == "" {
+			cfg.Logging.File = "debug.log"
+		}
+		if cfg.Logging.MaxSizeMB == 0 {
+			cfg.Logging.MaxSizeMB = 10
+		}
+		if cfg.Logging.MaxBackups == 0 {
+			cfg.Logging.MaxBackups = 3
+		}
+		if cfg.Server.Port == 0 {
+			cfg.Server.Port = 8080
+		}
+		if cfg.Server.BindAddress == "" {
+			cfg.Server.BindAddress = "127.0.0.1"
+		}
+		if cfg.UserMode == "" {
+			cfg.UserMode = "single"
+		}
+		if cfg.Auth.Provider == "" {
+			cfg.Auth.Provider = "userpass"
+		}
+		if cfg.Auth.SessionExpiryDays == 0 {
+			cfg.Auth.SessionExpiryDays = 7
+		}
+		if cfg.Auth.LockoutThreshold == 0 {
+			cfg.Auth.LockoutThreshold = 5
+		}
+		if cfg.Auth.LockoutDurationMinutes == 0 {
+			cfg.Auth.LockoutDurationMinutes = 15
+		}
+		if cfg.Guardrails.MaxFileSizeMB == 0 {
+			cfg.Guardrails.MaxFileSizeMB = 10
+		}
+		if cfg.Guardrails.MaxConcurrent == 0 {
+			cfg.Guardrails.MaxConcurrent = 3
+		}
+		if cfg.Guardrails.PIIDetection == "" {
+			cfg.Guardrails.PIIDetection = "normal"
+		}
+		if len(cfg.Guardrails.AllowedExtensions) == 0 {
+			cfg.Guardrails.AllowedExtensions = []string{".txt", ".md", ".pdf", ".html"}
+		}
+		if cfg.Privacy.CloudRAGPolicy == "" {
+			cfg.Privacy.CloudRAGPolicy = "no_rag"
 		}
 
 		// Migrate old single-provider config to dual-provider format if needed
@@ -145,19 +249,13 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
-// MarshalJSON implements custom JSON marshaling to exclude the legacy Provider field
+// MarshalJSON implements custom JSON marshaling
 func (c *Config) MarshalJSON() ([]byte, error) {
 	// Create a type alias to avoid infinite recursion
 	type ConfigAlias Config
 
-	// Create an anonymous struct that excludes the Provider field
-	return json.Marshal(&struct {
-		*ConfigAlias
-		Provider *ProviderConfig `json:"provider,omitempty"`
-	}{
-		ConfigAlias: (*ConfigAlias)(c),
-		Provider:    nil, // Always nil to exclude from JSON
-	})
+	// Marshal normally - include Provider field for backward compatibility
+	return json.Marshal((*ConfigAlias)(c))
 }
 
 // Save writes configuration to file
@@ -279,6 +377,36 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid auth provider: %s (must be userpass, mfa, or sso)", c.Auth.Provider)
 	}
 
+	// Privacy mode validation
+	if c.Privacy.DefaultToLocal {
+		// When privacy mode is enabled (default to local), check that provider is compatible
+		// Check both LocalProvider (new) and Provider (legacy) for backward compatibility
+		providerToCheck := c.LocalProvider
+		if providerToCheck.Type == "" && c.Provider.Type != "" {
+			// Use legacy Provider if LocalProvider is not set
+			providerToCheck = c.Provider
+		}
+
+		// Only validate that the provider type is compatible with local mode
+		// Don't require full configuration (models, etc.) as that's checked elsewhere
+		if providerToCheck.Type != "" && providerToCheck.Type != "ollama" {
+			return fmt.Errorf("privacy mode requires local provider (Ollama), got %s", providerToCheck.Type)
+		}
+
+		// If Ollama is configured, check that endpoint is localhost
+		if providerToCheck.Type == "ollama" && providerToCheck.OllamaEndpoint != "" {
+			if !strings.HasPrefix(providerToCheck.OllamaEndpoint, "http://localhost") &&
+				!strings.HasPrefix(providerToCheck.OllamaEndpoint, "http://127.0.0.1") {
+				return fmt.Errorf("privacy mode requires localhost endpoint, got %s", providerToCheck.OllamaEndpoint)
+			}
+		}
+	}
+
+	// RAG policy validation
+	if err := c.Privacy.ValidateRAGPolicy(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -331,6 +459,10 @@ func (p *ProviderConfig) ValidateCloud() error {
 
 // ValidateRAGPolicy validates RAG policy configuration
 func (p *PrivacyConfig) ValidateRAGPolicy() error {
+	// Empty is valid (will be defaulted)
+	if p.CloudRAGPolicy == "" {
+		return nil
+	}
 	if p.CloudRAGPolicy != "no_rag" && p.CloudRAGPolicy != "allow_rag" {
 		return fmt.Errorf("invalid RAG policy: %s (must be 'no_rag' or 'allow_rag')", p.CloudRAGPolicy)
 	}

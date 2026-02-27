@@ -34,12 +34,13 @@ func TestSettingsPersistence_CompleteFlow(t *testing.T) {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: PrivacyConfig{
-			DefaultToLocal:     true,
+			DefaultToLocal: true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Folders: []string{"/test/folder1", "/test/folder2"},
 		Logging: LoggingConfig{
 			Level:        "debug",
+			DebugEnabled: true,
 			File:         "test.log",
 			MaxSizeMB:    20,
 			MaxBackups:   5,
@@ -230,7 +231,7 @@ func TestSettingsPersistence_AnthropicProvider(t *testing.T) {
 			AnthropicChatModel: "claude-3-opus-20240229",
 		},
 		Privacy: PrivacyConfig{
-			DefaultToLocal:     false,
+			DefaultToLocal: false,
 			CloudRAGPolicy: "allow_rag",
 		},
 		Logging: LoggingConfig{
@@ -308,7 +309,7 @@ func TestSettingsPersistence_MultipleReloads(t *testing.T) {
 			OpenAIChatModel:  "chat-v1",
 		},
 		Privacy: PrivacyConfig{
-			DefaultToLocal:     true,
+			DefaultToLocal: true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Logging: LoggingConfig{
@@ -398,7 +399,7 @@ func TestSettingsPersistence_EmptyProviders(t *testing.T) {
 			Type: "", // Not configured
 		},
 		Privacy: PrivacyConfig{
-			DefaultToLocal:     true,
+			DefaultToLocal: true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Logging: LoggingConfig{
@@ -478,15 +479,15 @@ func TestSettingsPersistence_LoadTime(t *testing.T) {
 			OpenAIChatModel:  "gpt-4",
 		},
 		Privacy: PrivacyConfig{
-			DefaultToLocal:     true,
+			DefaultToLocal: true,
 			CloudRAGPolicy: "no_rag",
 		},
 		Folders: []string{"/test1", "/test2", "/test3"},
 		Logging: LoggingConfig{
-			Level:        "info",
-			File:         "debug.log",
-			MaxSizeMB:    10,
-			MaxBackups:   3,
+			Level:      "info",
+			File:       "debug.log",
+			MaxSizeMB:  10,
+			MaxBackups: 3,
 		},
 		Guardrails: GuardrailsConfig{
 			MaxFileSizeMB:     10,
