@@ -29,9 +29,9 @@
                     "Size" "md"
                     "ID" "newChatBtn"
                     "OnClick" "newChat()"
-                    "Class" "w-full"
+                    "Class" "w-full whitespace-nowrap"
                     "AriaLabel" "Start new chat"
-                    "Content" "<svg width=\"16\" height=\"16\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"mr-2\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z\"/></svg>New Chat"
+                    "Content" "<svg width=\"16\" height=\"16\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"mr-2 flex-shrink-0\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z\"/></svg><span>New Chat</span>"
                 }}
             </div>
             
@@ -721,7 +721,8 @@ function scrollToBottom() {
 
 /* Session Sidebar Wrapper */
 .session-sidebar-wrapper {
-    width: 260px;
+    width: 300px;
+    min-width: 300px;
     display: flex;
     flex-direction: column;
 }
@@ -984,14 +985,25 @@ function scrollToBottom() {
     flex: 1;
     position: relative;
     line-height: 1.6;
-    color: var(--text);
+    color: #1f2937; /* Light mode: dark text */
+}
+
+/* Dark mode for all message content - make it bright white */
+.dark .message-content {
+    color: #ffffff; /* Dark mode: bright white text */
 }
 
 /* Assistant message styling for markdown */
 .message-assistant .message-content {
-    background: var(--background);
     padding: 1rem;
     border-radius: 8px;
+    background: #f9fafb; /* Light mode: light gray background */
+}
+
+/* Dark mode for assistant messages */
+.dark .message-assistant .message-content {
+    background: #1f2937; /* Dark mode: dark gray background */
+    color: #ffffff; /* Dark mode: white text */
 }
 
 .message-assistant .message-content code {
@@ -1180,17 +1192,37 @@ function scrollToBottom() {
     border: 2px solid var(--border);
     border-radius: 8px;
     background: var(--surface);
-    color: var(--text);
     font-family: inherit;
     font-size: 0.875rem;
     resize: none;
     overflow-y: auto;
 }
 
+/* Light mode */
+.chat-textarea {
+    color: #1f2937;
+    background: #ffffff;
+    border-color: #e5e7eb;
+}
+
+/* Dark mode */
+.dark .chat-textarea {
+    color: #f3f4f6;
+    background: #1f2937;
+    border-color: #374151;
+}
+
 .chat-textarea:focus {
     outline: none;
-    border-color: var(--primary);
     border-width: 2px;
+}
+
+.chat-textarea:focus {
+    border-color: #3b82f6;
+}
+
+.dark .chat-textarea:focus {
+    border-color: #60a5fa;
 }
 
 .chat-textarea:disabled {
@@ -1205,6 +1237,20 @@ function scrollToBottom() {
     height: 44px !important;
     padding: 0 !important;
     min-width: 44px;
+}
+
+/* New Chat button styling */
+#newChatBtn {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+    white-space: nowrap !important;
+}
+
+#newChatBtn svg {
+    flex-shrink: 0 !important;
 }
 
 /* HTMX indicator */

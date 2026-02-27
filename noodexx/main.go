@@ -20,6 +20,7 @@ import (
 	"noodexx/internal/rag"
 	"noodexx/internal/skills"
 	"noodexx/internal/store"
+	"noodexx/internal/uistyle"
 	"noodexx/internal/watcher"
 )
 
@@ -247,17 +248,17 @@ func main() {
 
 	// Initialize API server with adapters
 	apiConfig := &api.ServerConfig{
-		PrivacyMode:        false,
+		PrivacyMode:        cfg.Privacy.DefaultToLocal,
 		UserMode:           cfg.UserMode,
-		Provider:           cfg.Provider.Type,
-		OllamaEndpoint:     cfg.Provider.OllamaEndpoint,
-		OllamaEmbedModel:   cfg.Provider.OllamaEmbedModel,
-		OllamaChatModel:    cfg.Provider.OllamaChatModel,
-		OpenAIKey:          cfg.Provider.OpenAIKey,
-		OpenAIEmbedModel:   cfg.Provider.OpenAIEmbedModel,
-		OpenAIChatModel:    cfg.Provider.OpenAIChatModel,
-		AnthropicKey:       cfg.Provider.AnthropicKey,
-		AnthropicChatModel: cfg.Provider.AnthropicChatModel,
+		Provider:           "", // Deprecated - using dual provider manager
+		OllamaEndpoint:     cfg.LocalProvider.OllamaEndpoint,
+		OllamaEmbedModel:   cfg.LocalProvider.OllamaEmbedModel,
+		OllamaChatModel:    cfg.LocalProvider.OllamaChatModel,
+		OpenAIKey:          cfg.CloudProvider.OpenAIKey,
+		OpenAIEmbedModel:   cfg.CloudProvider.OpenAIEmbedModel,
+		OpenAIChatModel:    cfg.CloudProvider.OpenAIChatModel,
+		AnthropicKey:       cfg.CloudProvider.AnthropicKey,
+		AnthropicChatModel: cfg.CloudProvider.AnthropicChatModel,
 	}
 	apiStoreAdapter := &apiStoreAdapter{store: st}
 	apiProviderAdapter := &apiProviderAdapter{provider: provider}
@@ -277,6 +278,13 @@ func main() {
 	apiProviderManagerAdapter := &apiProviderManagerAdapter{manager: dualProviderManager}
 	apiRAGEnforcerAdapter := &apiRAGEnforcerAdapter{enforcer: ragEnforcer}
 
+	// Load UI style configuration
+	uiStyle, err := uistyle.LoadUIStyle("uistyle.json")
+	if err != nil {
+		logger.Warn("Failed to load UI style config, using defaults: %v", err)
+		uiStyle = nil // Server will handle nil gracefully
+	}
+
 	apiServer, err := api.NewServer(
 		apiStoreAdapter,
 		apiProviderAdapter,
@@ -290,6 +298,7 @@ func main() {
 		"config.json",
 		apiProviderManagerAdapter,
 		apiRAGEnforcerAdapter,
+		uiStyle,
 	)
 	if err != nil {
 		logger.Error("Failed to initialize API server: %v", err)
@@ -346,9 +355,16 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 
-	logger.Info("Shutting down gracefully...")
+	// Log and display shutdown message
+	shutdownMsg := "User exit request made, shutting down..."
+	log.Println(shutdownMsg)
+	logger.Info(shutdownMsg)
+	
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	server.Shutdown(ctx)
-	logger.Info("Noodexx stopped")
+	
+	finalMsg := "Noodexx stopped"
+	log.Println(finalMsg)
+	logger.Info(finalMsg)
 }

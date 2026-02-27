@@ -941,20 +941,13 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-<<<<<<< HEAD
-		"Title":       "Settings",
-		"Page":        "settings",
-		"PrivacyMode": false,
-		"Config":      configData,
-		"UIStyle":     s.uiStyle,
-		"DarkMode":    darkMode,
-=======
 		"Title":                  "Settings",
 		"Page":                   "settings",
 		"PrivacyMode":            false,
 		"Config":                 configData,
 		"CloudProviderAvailable": cloudProviderAvailable,
->>>>>>> fef74aa40b93f35407dc475fa539c208fa1d2cf2
+		"UIStyle":                s.uiStyle,
+		"DarkMode":               darkMode,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {

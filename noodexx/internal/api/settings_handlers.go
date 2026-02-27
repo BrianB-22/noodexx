@@ -38,54 +38,53 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	// Update privacy mode (legacy - no longer used)
 	// Privacy mode is now controlled via DefaultToLocal in dual-provider system
 
-	// Update provider settings
-	providerType := r.FormValue("provider_type")
-	s.logger.Debug("Provider type from form: '%s'", providerType)
-	if providerType != "" {
-		cfg.Provider.Type = providerType
-	}
-	s.logger.Debug("Provider type set to: %s", cfg.Provider.Type)
-
-	// Ollama settings
+	// Update local provider settings (Ollama)
 	if v := r.FormValue("ollama_endpoint"); v != "" {
 		s.logger.Debug("Ollama endpoint: %s", v)
-		cfg.Provider.OllamaEndpoint = v
+		cfg.LocalProvider.OllamaEndpoint = v
 	}
 	if v := r.FormValue("ollama_embed_model"); v != "" {
 		s.logger.Debug("Ollama embed model: %s", v)
-		cfg.Provider.OllamaEmbedModel = v
+		cfg.LocalProvider.OllamaEmbedModel = v
 	}
 	if v := r.FormValue("ollama_chat_model"); v != "" {
 		s.logger.Debug("Ollama chat model: %s", v)
-		cfg.Provider.OllamaChatModel = v
+		cfg.LocalProvider.OllamaChatModel = v
+	}
+
+	// Update cloud provider settings
+	cloudProviderType := r.FormValue("cloud_provider_type")
+	if cloudProviderType != "" {
+		s.logger.Debug("Cloud provider type: %s", cloudProviderType)
+		cfg.CloudProvider.Type = cloudProviderType
 	}
 
 	// OpenAI settings
 	if v := r.FormValue("openai_key"); v != "" {
 		s.logger.Debug("OpenAI key provided: %d chars", len(v))
-		cfg.Provider.OpenAIKey = v
+		cfg.CloudProvider.OpenAIKey = v
 	}
 	if v := r.FormValue("openai_embed_model"); v != "" {
 		s.logger.Debug("OpenAI embed model: %s", v)
-		cfg.Provider.OpenAIEmbedModel = v
+		cfg.CloudProvider.OpenAIEmbedModel = v
 	}
 	if v := r.FormValue("openai_chat_model"); v != "" {
 		s.logger.Debug("OpenAI chat model: %s", v)
-		cfg.Provider.OpenAIChatModel = v
+		cfg.CloudProvider.OpenAIChatModel = v
 	}
 
 	// Anthropic settings
 	if v := r.FormValue("anthropic_key"); v != "" {
 		s.logger.Debug("Anthropic key provided: %d chars", len(v))
-		cfg.Provider.AnthropicKey = v
+		cfg.CloudProvider.AnthropicKey = v
 	}
 	if v := r.FormValue("anthropic_embed_model"); v != "" {
 		s.logger.Debug("Anthropic embed model: %s", v)
-		cfg.Provider.AnthropicEmbedModel = v
+		cfg.CloudProvider.AnthropicEmbedModel = v
 	}
 	if v := r.FormValue("anthropic_chat_model"); v != "" {
 		s.logger.Debug("Anthropic chat model: %s", v)
-		cfg.Provider.AnthropicChatModel = v
+		cfg.CloudProvider.AnthropicChatModel = v
 	}
 
 	// Watched folders
@@ -196,16 +195,18 @@ func (s *Server) handlePrivacyMode(w http.ResponseWriter, r *http.Request) {
 	// Legacy endpoint - privacy mode is now controlled via DefaultToLocal
 	// This endpoint is deprecated and should not be used
 
-	// Determine which provider to use based on privacy mode
+	// Determine active provider based on privacy mode
 	var providerType string
 	if req.Enabled {
-		// Privacy mode ON: force Ollama
-		providerType = "ollama"
-		s.logger.Info("Privacy mode enabled - switching to Ollama")
+		// Privacy mode ON: use local provider
+		providerType = "local"
+		cfg.Privacy.DefaultToLocal = true
+		s.logger.Info("Privacy mode enabled - switching to local provider")
 	} else {
-		// Privacy mode OFF: use configured provider
-		providerType = cfg.Provider.Type
-		s.logger.Info("Privacy mode disabled - using configured provider: %s", providerType)
+		// Privacy mode OFF: use cloud provider if available
+		providerType = "cloud"
+		cfg.Privacy.DefaultToLocal = false
+		s.logger.Info("Privacy mode disabled - switching to cloud provider")
 	}
 
 	// Save configuration
@@ -220,14 +221,16 @@ func (s *Server) handlePrivacyMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update in-memory config
-	s.config.PrivacyMode = req.Enabled
-
-	// Update provider type in config to reflect the active provider
-	if req.Enabled {
-		s.config.Provider = "ollama"
-	} else {
-		s.config.Provider = cfg.Provider.Type
+	// Reload provider manager with new configuration
+	if err := s.providerManager.Reload(cfg); err != nil {
+		s.logger.Error("Failed to reload provider manager: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Failed to reload providers: " + err.Error(),
+		})
+		return
 	}
 
 	s.logger.Info("Privacy mode updated to: %v, active provider: %s", req.Enabled, providerType)
@@ -239,4 +242,5 @@ func (s *Server) handlePrivacyMode(w http.ResponseWriter, r *http.Request) {
 		"enabled":  req.Enabled,
 		"provider": providerType,
 	})
+
 }
