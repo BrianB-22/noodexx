@@ -156,6 +156,14 @@ func (m *mockProviderManager) GetActiveProvider() (LLMProvider, error) {
 	return &mockProvider{}, nil
 }
 
+func (m *mockProviderManager) GetLocalProvider() LLMProvider {
+	return &mockProvider{}
+}
+
+func (m *mockProviderManager) GetCloudProvider() LLMProvider {
+	return nil
+}
+
 func (m *mockProviderManager) IsLocalMode() bool {
 	return true
 }
@@ -176,6 +184,9 @@ func (m *mockRAGEnforcer) ShouldPerformRAG() bool {
 
 func (m *mockRAGEnforcer) GetRAGStatus() string {
 	return "RAG Enabled"
+}
+
+func (m *mockRAGEnforcer) Reload(cfg interface{}) {
 }
 
 // Tests

@@ -107,11 +107,18 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 
+	// Check if cloud provider is available
+	cloudProviderAvailable := false
+	if s.providerManager != nil {
+		cloudProviderAvailable = s.providerManager.GetCloudProvider() != nil
+	}
+
 	// Prepare template data
 	data := map[string]interface{}{
-		"Title":       "Chat",
-		"Page":        "chat",
-		"PrivacyMode": s.config.PrivacyMode,
+		"Title":                  "Chat",
+		"Page":                   "chat",
+		"PrivacyMode":            s.config.PrivacyMode,
+		"CloudProviderAvailable": cloudProviderAvailable,
 	}
 
 	// Render chat template
@@ -827,11 +834,18 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	// Check if cloud provider is available
+	cloudProviderAvailable := false
+	if s.providerManager != nil {
+		cloudProviderAvailable = s.providerManager.GetCloudProvider() != nil
+	}
+
 	data := map[string]interface{}{
-		"Title":       "Settings",
-		"Page":        "settings",
-		"PrivacyMode": false,
-		"Config":      configData,
+		"Title":                  "Settings",
+		"Page":                   "settings",
+		"PrivacyMode":            false,
+		"Config":                 configData,
+		"CloudProviderAvailable": cloudProviderAvailable,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "base.html", data); err != nil {

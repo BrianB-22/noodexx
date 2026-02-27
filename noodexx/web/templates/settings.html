@@ -92,7 +92,14 @@
 
             <!-- Cloud Provider Display -->
             <div class="provider-display">
-                <h3>☁️ Cloud AI Provider</h3>
+                <h3>
+                    ☁️ Cloud AI Provider
+                    {{if .CloudProviderAvailable}}
+                    <span class="badge" style="background-color: #10b981; color: white; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; margin-left: 0.5rem;">Configured</span>
+                    {{else}}
+                    <span class="badge" style="background-color: #f59e0b; color: white; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; margin-left: 0.5rem;">Not Configured</span>
+                    {{end}}
+                </h3>
                 {{if .Config.CloudProvider.Type}}
                 <div class="config-display">
                     <div class="config-item">
@@ -131,12 +138,21 @@
                         <span class="config-value">{{if eq .Config.Privacy.CloudRAGPolicy "no_rag"}}No RAG (Maximum Privacy){{else if eq .Config.Privacy.CloudRAGPolicy "allow_rag"}}Allow RAG{{else}}{{.Config.Privacy.CloudRAGPolicy}}{{end}}</span>
                     </div>
                 </div>
+                {{if .CloudProviderAvailable}}
                 <button type="button" class="btn-secondary" onclick="testConnection('cloud')">
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
                     </svg>
                     Test Cloud Connection
                 </button>
+                {{else}}
+                <div class="config-note" style="margin-top: 1rem; padding: 0.75rem; background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 0.375rem;">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style="color: #f59e0b;">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
+                    </svg>
+                    <span style="margin-left: 0.5rem; color: #92400e;">Please configure cloud provider in config.json file and restart service</span>
+                </div>
+                {{end}}
                 {{else}}
                 <div class="empty-state">
                     <p>Not configured</p>

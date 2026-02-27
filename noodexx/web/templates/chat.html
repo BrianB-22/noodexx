@@ -4,7 +4,7 @@
     <aside class="session-sidebar">
         <div class="session-header">
             <!-- Privacy Toggle -->
-            <div class="privacy-toggle">
+            <div class="privacy-toggle" data-cloud-available="{{.CloudProviderAvailable}}">
                 <label class="toggle-option">
                     <input type="radio" name="provider-mode" value="local" {{if .PrivacyMode}}checked{{end}} onchange="switchProvider('local')">
                     <span class="toggle-label">
@@ -12,8 +12,8 @@
                         <span class="toggle-text">Local AI</span>
                     </span>
                 </label>
-                <label class="toggle-option">
-                    <input type="radio" name="provider-mode" value="cloud" {{if not .PrivacyMode}}checked{{end}} onchange="switchProvider('cloud')">
+                <label class="toggle-option" id="cloudToggleOption">
+                    <input type="radio" name="provider-mode" value="cloud" {{if not .PrivacyMode}}checked{{end}} onchange="switchProvider('cloud')" id="cloudProviderRadio">
                     <span class="toggle-label">
                         <span class="toggle-icon">☁️</span>
                         <span class="toggle-text">Cloud AI</span>
@@ -228,6 +228,32 @@ function updateProviderWarning(mode, ragStatus) {
 document.addEventListener('DOMContentLoaded', function() {
     // Generate a new session ID for new chats
     currentSessionId = generateSessionId();
+    
+    // Check if cloud provider is available and disable toggle if not
+    const privacyToggle = document.querySelector('.privacy-toggle');
+    const cloudAvailable = privacyToggle?.getAttribute('data-cloud-available') === 'true';
+    
+    if (!cloudAvailable) {
+        const cloudToggleOption = document.getElementById('cloudToggleOption');
+        const cloudProviderRadio = document.getElementById('cloudProviderRadio');
+        
+        if (cloudToggleOption && cloudProviderRadio) {
+            // Disable the cloud provider radio button
+            cloudProviderRadio.disabled = true;
+            
+            // Add disabled class for styling
+            cloudToggleOption.classList.add('toggle-disabled');
+            
+            // Add tooltip to show why it's disabled
+            cloudToggleOption.setAttribute('title', 'Cloud provider not configured. Please configure in config.json and restart.');
+            
+            // Ensure local provider is selected if cloud was selected but unavailable
+            const localProviderRadio = document.querySelector('input[name="provider-mode"][value="local"]');
+            if (cloudProviderRadio.checked && localProviderRadio) {
+                localProviderRadio.checked = true;
+            }
+        }
+    }
     
     // Auto-resize textarea
     const textarea = document.getElementById('messageInput');
@@ -724,6 +750,20 @@ function scrollToBottom() {
 .toggle-option input[type="radio"]:disabled + .toggle-label {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.toggle-option.toggle-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.toggle-option.toggle-disabled .toggle-label {
+    color: var(--text-secondary);
+}
+
+.toggle-option.toggle-disabled:hover {
+    background: transparent;
 }
 
 .session-list {

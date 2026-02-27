@@ -61,6 +61,14 @@ func (m *mockProviderManagerForAsk) GetActiveProvider() (LLMProvider, error) {
 	return m.provider, nil
 }
 
+func (m *mockProviderManagerForAsk) GetLocalProvider() LLMProvider {
+	return m.provider
+}
+
+func (m *mockProviderManagerForAsk) GetCloudProvider() LLMProvider {
+	return nil
+}
+
 func (m *mockProviderManagerForAsk) IsLocalMode() bool {
 	return m.provider != nil && m.provider.IsLocal()
 }
@@ -85,6 +93,9 @@ func (m *mockRAGEnforcerForAsk) ShouldPerformRAG() bool {
 
 func (m *mockRAGEnforcerForAsk) GetRAGStatus() string {
 	return m.ragStatus
+}
+
+func (m *mockRAGEnforcerForAsk) Reload(cfg interface{}) {
 }
 
 // mockStoreForAsk implements Store for testing handleAsk

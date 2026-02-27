@@ -1,0 +1,134 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Application Launches with Missing Cloud Provider Credentials
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: Scope the property to concrete failing cases: cloud provider configured (openai/anthropic) with empty API key, valid local provider configured
+  - Test that application launch with isBugCondition(config) = true crashes with "failed to initialize cloud provider" error
+  - The test assertions should match the Expected Behavior Properties from design:
+    - Application should launch successfully (result.launched == true)
+    - Local provider should be available (result.localProviderAvailable == true)
+    - Cloud provider should be unavailable (result.cloudProviderAvailable == false)
+    - Warning should be logged (result.warningLogged == true)
+    - Warning message should contain "Cloud provider initialization failed"
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found:
+    - OpenAI with empty key: application exits with "openai API key is required"
+    - Anthropic with empty key: application exits with "anthropic API key is required"
+    - Environment variable missing: application exits before local provider can be used
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Dual Provider Functionality with Valid Credentials
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs (valid credentials for both providers)
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements:
+    - Application launches successfully with both providers initialized
+    - Provider switching via UI toggle works correctly
+    - Cloud provider operations (chat, embeddings, RAG) work correctly
+    - Local provider operations work correctly regardless of cloud provider status
+    - Configuration reload works correctly with valid credentials
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4_
+
+- [x] 3. Fix for cloud provider optional launch
+
+  - [x] 3.1 Modify dual_manager.go to handle cloud provider initialization failures gracefully
+    - Update NewDualProviderManager function (lines 60-75):
+      - Wrap cloud provider initialization in error handling that logs warning instead of returning error
+      - Set manager.cloudProvider = nil when initialization fails
+      - Log warning message: "Cloud provider initialization failed: %v. Application will run with local provider only."
+    - Add mandatory local provider validation after initialization attempts:
+      - Check if manager.localProvider == nil
+      - Return error: "A local provider is required. Please refer to documentation on configuration."
+    - Update final validation message to reflect local provider is mandatory
+    - Apply same graceful degradation logic to Reload method (lines 207-217)
+    - _Bug_Condition: isBugCondition(input) where input.CloudProvider configured but API key missing AND input.LocalProvider properly configured_
+    - _Expected_Behavior: Application launches successfully with local provider only, cloud provider nil, warning logged_
+    - _Preservation: When both providers have valid credentials, initialization must work exactly as before_
+    - _Requirements: 2.1, 2.2, 2.3, 2.7_
+
+  - [x] 3.2 Update main.go to handle missing cloud provider
+    - Update cloud provider display section (lines 119-133):
+      - Check if cloud provider was successfully initialized
+      - Display appropriate message when cloud provider is not available
+    - Modify active provider check (lines 165-168):
+      - Handle case where GetActiveProvider returns error because cloud provider not configured but default is cloud mode
+      - Log warning: "Defaulting to Local AI because no cloud provider configured"
+      - Automatically switch to local mode by updating configuration's default provider setting
+    - _Bug_Condition: isBugCondition(input) AND input.DefaultProvider == "cloud"_
+    - _Expected_Behavior: Application switches to local provider automatically with warning message_
+    - _Preservation: When cloud provider is configured, active provider logic must work exactly as before_
+    - _Requirements: 2.8_
+
+  - [x] 3.3 Update API handlers to pass cloud provider availability status
+    - Identify template data preparation functions in handlers.go or server.go
+    - Add CloudProviderAvailable boolean field to template data structures
+    - Populate field by checking if cloud provider is nil in DualProviderManager
+    - Pass provider status to chat and settings templates
+    - _Bug_Condition: isBugCondition(input) results in cloudProvider == nil_
+    - _Expected_Behavior: Templates receive accurate cloud provider availability status_
+    - _Preservation: When cloud provider is configured, template data must be identical to before_
+    - _Requirements: 2.4, 2.5, 2.6_
+
+  - [x] 3.4 Update chat.html to disable cloud provider toggle when unavailable
+    - Add data attribute to template: data-cloud-available="{{.CloudProviderAvailable}}"
+    - Add JavaScript logic to check cloud provider availability on page load
+    - Disable cloud provider radio button when not available
+    - Add visual indicator (grayed out with tooltip) showing cloud provider is unavailable
+    - _Bug_Condition: isBugCondition(input) results in CloudProviderAvailable == false_
+    - _Expected_Behavior: Cloud provider toggle is disabled and visually indicates unavailability_
+    - _Preservation: When cloud provider is available, toggle must work exactly as before_
+    - _Requirements: 2.4_
+
+  - [x] 3.5 Update settings.html to show cloud provider configuration status
+    - Modify cloud provider section (around line 155)
+    - Check if cloud provider has valid credentials
+    - When not configured, replace "Test Cloud Connection" button with message: "Please configure cloud provider in config.json file and restart service"
+    - Add visual indicator (badge or icon) showing cloud provider configuration status
+    - _Bug_Condition: isBugCondition(input) results in CloudProviderAvailable == false_
+    - _Expected_Behavior: Settings page shows configuration message instead of test button_
+    - _Preservation: When cloud provider is configured, settings page must work exactly as before_
+    - _Requirements: 2.5, 2.6_
+
+  - [x] 3.6 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Application Launches with Missing Cloud Provider Credentials
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify all assertions pass:
+      - Application launches successfully
+      - Local provider is available
+      - Cloud provider is unavailable (nil)
+      - Warning is logged with correct message
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.7 Verify preservation tests still pass
+    - **Property 2: Preservation** - Dual Provider Functionality with Valid Credentials
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all preservation behaviors still work:
+      - Application launches with both providers when credentials valid
+      - Provider switching works correctly
+      - Cloud provider operations work correctly
+      - Local provider operations work correctly
+      - Configuration reload works correctly
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run all unit tests for dual_manager.go
+  - Run all integration tests for application launch scenarios
+  - Run all UI tests for chat and settings pages
+  - Verify all property-based tests pass
+  - Ensure no regressions in existing functionality
+  - Ask the user if questions arise

@@ -162,11 +162,38 @@ func main() {
 	ragEnforcer := rag.NewRAGPolicyEnforcer(cfg, logger)
 	logger.Info("Dual provider manager initialized")
 
+	// Display provider initialization status
+	if dualProviderManager.GetCloudProvider() == nil && cfg.CloudProvider.Type != "" {
+		log.Printf("⚠️  Cloud provider configured but not available (check API key configuration)")
+	}
+
 	// Get active provider for backward compatibility with ingester
 	provider, err := dualProviderManager.GetActiveProvider()
 	if err != nil {
-		logger.Error("Failed to get active provider: %v", err)
-		os.Exit(1)
+		// Handle case where default provider is cloud but cloud provider not configured
+		if !cfg.Privacy.DefaultToLocal && dualProviderManager.GetCloudProvider() == nil {
+			logger.Warn("Defaulting to Local AI because no cloud provider configured")
+			// Switch to local mode by updating the configuration
+			cfg.Privacy.DefaultToLocal = true
+			// Save the updated configuration
+			if saveErr := cfg.Save("config.json"); saveErr != nil {
+				logger.Error("Failed to save updated configuration: %v", saveErr)
+			}
+			// Reload the dual provider manager with updated config
+			if reloadErr := dualProviderManager.Reload(cfg); reloadErr != nil {
+				logger.Error("Failed to reload provider manager: %v", reloadErr)
+				os.Exit(1)
+			}
+			// Try to get active provider again (should now return local provider)
+			provider, err = dualProviderManager.GetActiveProvider()
+			if err != nil {
+				logger.Error("Failed to get active provider after switching to local: %v", err)
+				os.Exit(1)
+			}
+		} else {
+			logger.Error("Failed to get active provider: %v", err)
+			os.Exit(1)
+		}
 	}
 
 	// Initialize RAG components

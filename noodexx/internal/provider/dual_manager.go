@@ -67,15 +67,18 @@ func NewDualProviderManager(cfg *config.Config, logger *logging.Logger) (*DualPr
 
 		provider, err := llm.NewProvider(cloudCfg, false, logger)
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialize cloud provider: %w", err)
+			// Log warning and continue with local provider only
+			logger.Warn("Cloud provider initialization failed: %v. Application will run with local provider only.", err)
+			manager.cloudProvider = nil
+		} else {
+			manager.cloudProvider = provider
+			logger.Info("Cloud provider initialized: %s", cfg.CloudProvider.Type)
 		}
-		manager.cloudProvider = provider
-		logger.Info("Cloud provider initialized: %s", cfg.CloudProvider.Type)
 	}
 
-	// At least one provider must be configured
-	if manager.localProvider == nil && manager.cloudProvider == nil {
-		return nil, fmt.Errorf("at least one provider (local or cloud) must be configured")
+	// Local provider is mandatory
+	if manager.localProvider == nil {
+		return nil, fmt.Errorf("A local provider is required. Please refer to documentation on configuration.")
 	}
 
 	return manager, nil
@@ -207,7 +210,8 @@ func (m *DualProviderManager) Reload(cfg *config.Config) error {
 
 		provider, err := llm.NewProvider(cloudCfg, false, m.logger)
 		if err != nil {
-			m.logger.Error("Failed to reinitialize cloud provider: %v", err)
+			// Log warning and continue with local provider only
+			m.logger.Warn("Cloud provider initialization failed: %v. Application will run with local provider only.", err)
 			m.cloudProvider = nil
 		} else {
 			m.cloudProvider = provider
@@ -219,9 +223,9 @@ func (m *DualProviderManager) Reload(cfg *config.Config) error {
 		m.logger.Info("Cloud provider removed from configuration")
 	}
 
-	// At least one provider must be configured
-	if m.localProvider == nil && m.cloudProvider == nil {
-		return fmt.Errorf("at least one provider (local or cloud) must be configured after reload")
+	// Local provider is mandatory
+	if m.localProvider == nil {
+		return fmt.Errorf("A local provider is required. Please refer to documentation on configuration.")
 	}
 
 	return nil

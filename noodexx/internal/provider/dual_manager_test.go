@@ -132,26 +132,22 @@ func TestGetActiveProvider_CloudMode(t *testing.T) {
 }
 
 // TestGetActiveProvider_UnconfiguredLocalProvider tests error when local provider is not configured
+// After bugfix: local provider is mandatory, so NewDualProviderManager should fail
 func TestGetActiveProvider_UnconfiguredLocalProvider(t *testing.T) {
 	cfg := createCloudOnlyConfig()
 	cfg.Privacy.DefaultToLocal = true // Try to use local, but it's not configured
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
-	if err != nil {
-		t.Fatalf("NewDualProviderManager() failed: %v", err)
-	}
-
-	provider, err := manager.GetActiveProvider()
 	if err == nil {
-		t.Fatal("GetActiveProvider() should return error when local provider is not configured")
+		t.Fatal("NewDualProviderManager() should fail when local provider is not configured")
 	}
 
-	if provider != nil {
-		t.Error("GetActiveProvider() should return nil provider when error occurs")
+	if manager != nil {
+		t.Error("NewDualProviderManager() should return nil manager when error occurs")
 	}
 
-	expectedError := "local provider not configured"
+	expectedError := "A local provider is required. Please refer to documentation on configuration."
 	if err.Error() != expectedError {
 		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
 	}
@@ -273,20 +269,24 @@ func TestGetProviderName_CloudAnthropic(t *testing.T) {
 }
 
 // TestGetProviderName_UnconfiguredLocal tests GetProviderName when local provider is not configured
+// After bugfix: local provider is mandatory, so NewDualProviderManager should fail
 func TestGetProviderName_UnconfiguredLocal(t *testing.T) {
 	cfg := createCloudOnlyConfig()
 	cfg.Privacy.DefaultToLocal = true // Try to use local, but it's not configured
 	logger := createTestLogger()
 
 	manager, err := NewDualProviderManager(cfg, logger)
-	if err != nil {
-		t.Fatalf("NewDualProviderManager() failed: %v", err)
+	if err == nil {
+		t.Fatal("NewDualProviderManager() should fail when local provider is not configured")
 	}
 
-	name := manager.GetProviderName()
-	expected := "Local AI (Not Configured)"
-	if name != expected {
-		t.Errorf("Expected provider name '%s', got '%s'", expected, name)
+	if manager != nil {
+		t.Error("NewDualProviderManager() should return nil manager when error occurs")
+	}
+
+	expectedError := "A local provider is required. Please refer to documentation on configuration."
+	if err.Error() != expectedError {
+		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
 	}
 }
 
@@ -388,6 +388,7 @@ func TestReload_UpdateCloudProvider(t *testing.T) {
 }
 
 // TestReload_RemoveLocalProvider tests Reload handles removal of local provider
+// After bugfix: local provider is mandatory, so Reload should fail
 func TestReload_RemoveLocalProvider(t *testing.T) {
 	cfg := createDualProviderConfig()
 	logger := createTestLogger()
@@ -401,18 +402,13 @@ func TestReload_RemoveLocalProvider(t *testing.T) {
 	newCfg := createCloudOnlyConfig()
 
 	err = manager.Reload(newCfg)
-	if err != nil {
-		t.Fatalf("Reload() failed: %v", err)
+	if err == nil {
+		t.Fatal("Reload() should fail when local provider is removed")
 	}
 
-	// Verify local provider was removed
-	if manager.localProvider != nil {
-		t.Error("Local provider should be nil after removal from config")
-	}
-
-	// Verify cloud provider is still available
-	if manager.cloudProvider == nil {
-		t.Error("Cloud provider should still be initialized")
+	expectedError := "A local provider is required. Please refer to documentation on configuration."
+	if err.Error() != expectedError {
+		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
 	}
 }
 
@@ -446,6 +442,7 @@ func TestReload_RemoveCloudProvider(t *testing.T) {
 }
 
 // TestReload_RemoveBothProviders tests Reload returns error when both providers are removed
+// After bugfix: local provider is mandatory, so error message should reflect that
 func TestReload_RemoveBothProviders(t *testing.T) {
 	cfg := createDualProviderConfig()
 	logger := createTestLogger()
@@ -470,7 +467,7 @@ func TestReload_RemoveBothProviders(t *testing.T) {
 		t.Fatal("Reload() should return error when both providers are removed")
 	}
 
-	expectedError := "at least one provider (local or cloud) must be configured after reload"
+	expectedError := "A local provider is required. Please refer to documentation on configuration."
 	if err.Error() != expectedError {
 		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
 	}
